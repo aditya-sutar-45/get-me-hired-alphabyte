@@ -1,0 +1,43 @@
+[
+  {
+    "company_name": "Foogle",
+    "title": "Frontend Developer (JavaScript)",
+    "description": "Foogle is looking for a Frontend Developer proficient in modern JavaScript (ES6+) to help us create high-quality, interactive web experiences. You will be responsible for writing clean, scalable code and implementing intuitive UIs that bring designs to life. The ideal candidate has a solid understanding of DOM manipulation, browser events, and responsive web design. You’ll work closely with designers and backend engineers to deliver seamless and performant applications. A strong grasp of debugging, cross-browser compatibility, and web performance optimization techniques is required. If you enjoy transforming complex user flows into elegant, efficient interfaces and have a passion for frontend technologies, this role is perfect for you.",
+    "languages": [
+      "javascript"
+    ]
+  },
+  {
+    "company_name": "Babezon",
+    "title": "React Developer",
+    "description": "Babezon is hiring a React Developer to build modern, performant, and visually engaging web applications. You will use React.js, Hooks, and component-driven architecture to create reusable, scalable UIs. The role involves close collaboration with product designers and backend engineers to integrate RESTful APIs and ensure smooth user experiences. Candidates should have a strong grasp of JavaScript fundamentals, asynchronous programming, and front-end build tools like Vite or Webpack. Experience with state management libraries such as Redux or Zustand is preferred. You should be comfortable optimizing rendering performance and using tools like React DevTools for debugging. This is an exciting opportunity to work in a fast-paced environment using the latest technologies in the React ecosystem.",
+    "languages": [
+      "javascript",
+      "react"
+    ]
+  },
+  {
+    "company_name": "double X",
+    "title": "Software Engineer (Core Java)",
+    "description": "double X is seeking a Software Engineer with strong Core Java skills to develop and maintain enterprise-grade applications. This role involves designing efficient algorithms, implementing object-oriented solutions, and writing robust, maintainable code. The ideal candidate should have a deep understanding of Java fundamentals, including collections, multithreading, exception handling, and file I/O. You’ll work on backend logic, data processing, and internal tooling where reliability and performance are key. Familiarity with design patterns, data structures, and JVM optimization will be a major plus. If you are passionate about writing clean, efficient Java code and enjoy solving complex technical problems, NimbusTech offers the perfect environment for growth.",
+    "languages": [
+      "java"
+    ]
+  },
+  {
+    "company_name": "Fetflix",
+    "title": "Backend Developer (Go)",
+    "description": "Fetflix is looking for a Backend Developer experienced in Go (Golang) to design and implement distributed systems and high-performance APIs. You will work on developing scalable services, optimizing performance, and improving reliability across our backend infrastructure. The ideal candidate has a strong understanding of Go’s concurrency model, goroutines, and channels. You should be comfortable writing efficient, testable code and have experience with RESTful API design, JSON serialization, and database integrations (PostgreSQL or MongoDB). Exposure to Docker, Kubernetes, and microservice architecture is a plus. This role is ideal for developers who enjoy building efficient systems and solving scalability challenges using Go’s simplicity and power.",
+    "languages": [
+      "go"
+    ]
+  },
+  {
+    "company_name": "Beta",
+    "title": "Python Developer",
+    "description": "Beta is seeking a Python Developer to help us build automation tools and intelligent data-driven systems. You will write clean, maintainable Python code for backend services, APIs, and data processing workflows. The ideal candidate has a deep understanding of Python fundamentals, OOP principles, and libraries like requests, asyncio, and pandas. Experience with frameworks such as Flask or FastAPI is desirable but not mandatory. You will collaborate with machine learning and data teams to develop scripts, automate workflows, and integrate third-party APIs. A strong focus on code readability, error handling, and testing is expected. If you love using Python to solve real-world problems and build scalable systems, we want you on our team.",
+    "languages": [
+      "python"
+    ]
+  }
+]

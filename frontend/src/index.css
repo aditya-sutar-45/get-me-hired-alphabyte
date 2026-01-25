@@ -1,0 +1,21 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400;1,700&family=Work+Sans:ital,wght@0,100..900;1,100..900&display=swap");
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+@plugin "daisyui" {
+  themes:
+    business --default,
+    emerald,
+    abyss,
+    dracula,
+    black;
+}
+html, body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+
+@theme {
+  --font-space-mono: "Space Mono", sans-serif;
+  --font-work-sans: "Work Sans", sans-serif;
+}
