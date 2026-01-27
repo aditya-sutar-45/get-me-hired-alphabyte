@@ -30,15 +30,29 @@ Students, recruiters, colleges, underrepresented communities lacking equitable a
 - Code analysis
 - AI-Driven Performance Feedback
 
----
+## Tech Stack
 
-## System Architecture
+1. Frontend: ReactJS, TailwindCSS
+2. Backend: Go, Python (Flask)
+3. Database: Postgres
+4. Vector Store: PineCone
 
-![RAG_pipeline_arch](diagrams/rag.jpeg)
-![voice_agent_arch](diagrams/voice_agent.jpeg)
+## Dependencies
+
+1. Real Time Communication (Voice Agent): Livekit
+2. AI Orchestration: Langchain
+3. UI Framework: Daisy UI
+4. Speech to Text/ Text to Speech: Deepgram
 
 ## Project setup
 
 1. [Frontend setup](/frontend/README.md)
 2. [Backend setup](/backend/README.md)
 3. [LLM_Backend setup](/llm_backend/README.md)
+
+---
+
+## System Architecture
+
+![RAG_pipeline_arch](diagrams/rag.jpeg)
+![voice_agent_arch](diagrams/voice_agent.jpeg)
