@@ -6,18 +6,19 @@ A unified platform with adaptive voice-based AI interviews, real-time performanc
 
 ## The Problem
 
-Fresh graduates fail interviews not due to skill gaps, but due to:
+- Technical interviews demand rapid thinking, structured reasoning, and clear verbal  communication under  intense time pressure.
+- However, Fresh graduates fail interviews not due to skill gaps, but due to:
+  1. Poor confidence & communication
+  2. Feedback is delayed, not real-time
+  3. Practice is static and disconnected from real interview pressure
+  4. Scattered preparation across multiple platforms
 
-- Poor confidence & communication
-- No realistic practice or actionable feedback
-- Scattered preparation across multiple platforms
-
-The Hiring Crisis
-*Candidates:* struggle with confidence & lack AI-powered interview preparation
-*Companies:* face talent shortages, bias & inefficient hiring processes
+- The Hiring Crisis
+Candidates: struggle with confidence & lack AI-powered interview preparation
+Companies: face talent shortages, bias & inefficient hiring processes
 
 - Why It Matters: 64% of companies use AI in hiring, but candidates lack AI-powered preparation. 45% fail interviews due to poor communication and confidence, not technical ability.
-Students, recruiters, colleges, underrepresented communities lacking equitable access to quality coaching
+Students and underrepresented groups lack access to quality interview coaching
 
 ---
 
