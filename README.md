@@ -34,5 +34,5 @@ Students, recruiters, colleges, underrepresented communities lacking equitable a
 
 ## System Architecture
 
-![RAG_pipeline_arch](diagrams/RAG_pipeline_arch.jpg)
-![voice_agent_arch](diagrams/voice_agent_arch.jpg)
+![RAG_pipeline_arch](diagrams/rag.jpeg)
+![voice_agent_arch](diagrams/voice_agent.jpeg)
