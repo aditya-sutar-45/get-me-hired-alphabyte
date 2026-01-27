@@ -36,3 +36,7 @@ Students, recruiters, colleges, underrepresented communities lacking equitable a
 
 ![RAG_pipeline_arch](diagrams/rag.jpeg)
 ![voice_agent_arch](diagrams/voice_agent.jpeg)
+
+## Project setup
+
+1. [Backend setup](/backend/README.md)

@@ -24,7 +24,7 @@ go version
 
 ```bash
 git clone github.com/aditya-sutar-45/get-me-hired-alphabyte
-cd get-me-hired-alphabyte
+cd get-me-hired-alphabyte/backend
 ```
 
 ### Setup environment variables
