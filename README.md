@@ -39,4 +39,6 @@ Students, recruiters, colleges, underrepresented communities lacking equitable a
 
 ## Project setup
 
-1. [Backend setup](/backend/README.md)
+1. [Frontend setup](/frontend/README.md)
+2. [Backend setup](/backend/README.md)
+3. [LLM_Backend setup](/llm_backend/README.md)
