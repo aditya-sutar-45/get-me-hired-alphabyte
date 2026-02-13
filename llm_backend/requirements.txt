@@ -9,6 +9,7 @@ pypdf
 
 langgraph
 langchain
+langchain-core
 langchain-community
 langchain-google-genai
 langchain-pinecone
