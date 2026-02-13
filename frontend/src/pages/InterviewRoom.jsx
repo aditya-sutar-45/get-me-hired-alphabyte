@@ -132,9 +132,8 @@ const InterviewRoom = () => {
   const animationFrameIdsRef = useRef([]);
   const isConnectingRef = useRef(false);
 
-  // Track if avatar has joined
-  const avatarJoinedRef = useRef(false);
-  const avatarVideoTimeoutRef = useRef(null);
+  // REMOVED: avatarJoinedRef and avatarVideoTimeoutRef - no longer needed
+  // We now rely on the actual video playing event
 
   // NEW: Track current agent segment for live streaming
   const currentAgentSegmentRef = useRef(null);
@@ -148,11 +147,6 @@ const InterviewRoom = () => {
     if (agentSpeakingTimeoutRef.current) {
       clearTimeout(agentSpeakingTimeoutRef.current);
       agentSpeakingTimeoutRef.current = null;
-    }
-
-    if (avatarVideoTimeoutRef.current) {
-      clearTimeout(avatarVideoTimeoutRef.current);
-      avatarVideoTimeoutRef.current = null;
     }
 
     if (agentSpeechDetectionTimeoutRef.current) {
@@ -245,6 +239,12 @@ const InterviewRoom = () => {
     });
   };
 
+  // NEW: Handler for when avatar video is actually playing
+  const handleAvatarVideoReady = () => {
+    console.log("✅ Avatar video is now visible on screen - closing loading modal");
+    setIsConnecting(false);
+  };
+
   const connectToRoom = async () => {
     if (isConnectingRef.current || roomRef.current) {
       return;
@@ -254,7 +254,6 @@ const InterviewRoom = () => {
       isConnectingRef.current = true;
       setIsConnecting(true);
       setStatus("Connecting...");
-      avatarJoinedRef.current = false; // Reset avatar joined flag
 
       const jobData = location.state?.jobData || {
         companyName: "Default Company",
@@ -309,6 +308,7 @@ const InterviewRoom = () => {
           );
         });
 
+        // Check for existing avatar video tracks
         room.remoteParticipants.forEach((participant) => {
           participant.videoTracks.forEach((publication) => {
             if (publication.isSubscribed && publication.videoTrack) {
@@ -323,15 +323,7 @@ const InterviewRoom = () => {
                   `Setting video track from existing participant: ${participant.identity}`,
                 );
                 setVideoTrack(publication.videoTrack);
-
-                // If avatar already present, close modal after short delay
-                if (!avatarJoinedRef.current) {
-                  avatarJoinedRef.current = true;
-                  avatarVideoTimeoutRef.current = setTimeout(() => {
-                    setIsConnecting(false);
-                    console.log("Modal closed - Avatar video ready");
-                  }, 1000);
-                }
+                // Modal will close when video actually starts playing (via onVideoReady callback)
               }
             }
           });
@@ -379,15 +371,12 @@ const InterviewRoom = () => {
                 );
 
                 if (speaker === "Agent") {
-                  // Set agent speaking immediately when interim or final transcript received
                   setIsAgentSpeaking(true);
 
-                  // Clear any existing timeout
                   if (agentSpeakingTimeoutRef.current) {
                     clearTimeout(agentSpeakingTimeoutRef.current);
                   }
 
-                  // Only set timeout to turn off speaking if this is final
                   if (isFinal) {
                     agentSpeakingTimeoutRef.current = setTimeout(() => {
                       setIsAgentSpeaking(false);
@@ -411,53 +400,6 @@ const InterviewRoom = () => {
               } else {
                 console.log("Transcription skipped - empty message");
               }
-
-              // if (message.trim()) {
-              //   const identity = participantInfo.identity.toLowerCase();
-
-              //   const isAgent =
-              //     identity.includes("agent") ||
-              //     identity.includes("ai") ||
-              //     identity.includes("voice") ||
-              //     identity.includes("assistant") ||
-              //     identity.includes("interviewer") ||
-              //     identity.includes("avatar") ||
-              //     identity.includes("simli");
-
-              //   const speaker = isAgent ? "Agent" : "You";
-
-              //   console.log(`Detected speaker: ${speaker}`);
-              //   console.log(`   Identity matched: ${isAgent ? "YES (Agent)" : "NO (User)"}`);
-
-              //   if (speaker === "Agent") {
-              //     // Set agent speaking for both interim and final
-              //     setIsAgentSpeaking(true);
-
-              //     // Clear any existing timeout
-              //     if (agentSpeakingTimeoutRef.current) {
-              //       clearTimeout(agentSpeakingTimeoutRef.current);
-              //     }
-
-              //     // Set timeout to turn off speaking state after final transcript
-              //     if (isFinal) {
-              //       agentSpeakingTimeoutRef.current = setTimeout(() => {
-              //         setIsAgentSpeaking(false);
-              //       }, 1500);
-              //     }
-              //   }
-
-              //   // Show interim transcripts as streaming for Agent
-              //   if (!isFinal && speaker === "Agent") {
-              //     console.log(`Adding INTERIM transcript: ${speaker} - ${message}`);
-              //     addInterimTranscript(speaker, message, segmentId);
-              //   } else {
-              //     // Show final transcripts or user messages immediately
-              //     console.log(`Adding FINAL transcript: ${speaker} - ${message}`);
-              //     addFinalTranscript(speaker, message, segmentId);
-              //   }
-              // } else {
-              //   console.log("Transcription skipped - empty message");
-              // }
             } catch (error) {
               console.error("Error processing transcription:", error);
             }
@@ -483,24 +425,7 @@ const InterviewRoom = () => {
         console.log(`=== Participant Joined ===`);
         console.log(`Identity: "${participant.identity}"`);
         console.log(`Name: "${participant.name}"`);
-
-        // Check if this is the avatar/agent joining
-        const identity = participant.identity.toLowerCase();
-        if (
-          identity.includes("agent") ||
-          identity.includes("ai") ||
-          identity.includes("avatar") ||
-          identity.includes("interviewer")
-        ) {
-          console.log("Avatar/Agent participant detected!");
-          avatarJoinedRef.current = true;
-
-          // Wait a bit for video track to be ready, then close modal
-          avatarVideoTimeoutRef.current = setTimeout(() => {
-            setIsConnecting(false);
-            console.log("Modal closed - Avatar ready");
-          }, 1500);
-        }
+        // Modal will close when video actually starts playing (via onVideoReady callback)
       });
 
       room.on(LiveKit.RoomEvent.TrackPublished, (publication, participant) => {
@@ -555,16 +480,13 @@ const InterviewRoom = () => {
                   const average =
                     dataArray.reduce((a, b) => a + b) / dataArray.length;
 
-                  // More sensitive threshold for real-time detection
                   if (average > 5) {
                     setIsAgentSpeaking(true);
 
-                    // Clear existing timeout
                     if (agentSpeechDetectionTimeoutRef.current) {
                       clearTimeout(agentSpeechDetectionTimeoutRef.current);
                     }
 
-                    // Set timeout to turn off after silence
                     agentSpeechDetectionTimeoutRef.current = setTimeout(() => {
                       setIsAgentSpeaking(false);
                     }, 500);
@@ -596,15 +518,7 @@ const InterviewRoom = () => {
                 `Setting AGENT video track from: ${participant.identity}`,
               );
               setVideoTrack(track);
-
-              // Avatar video track subscribed - close modal after short delay
-              if (!avatarJoinedRef.current) {
-                avatarJoinedRef.current = true;
-                avatarVideoTimeoutRef.current = setTimeout(() => {
-                  setIsConnecting(false);
-                  console.log("Modal closed - Avatar video track subscribed");
-                }, 1000);
-              }
+              // Modal will close when video actually starts playing (via onVideoReady callback)
             } else {
               console.log(
                 `Setting USER video track from: ${participant.identity}`,
@@ -656,61 +570,6 @@ const InterviewRoom = () => {
     }
   };
 
-  // const disconnectFromRoom = async () => {
-  //   if (!roomRef.current || isDisconnectingRef.current) {
-  //     return;
-  //   }
-
-  //   try {
-  //     isDisconnectingRef.current = true;
-  //     const room = roomRef.current;
-  //     roomRef.current = null;
-
-  //     if (violationTimeoutRef.current) {
-  //       clearTimeout(violationTimeoutRef.current);
-  //       violationTimeoutRef.current = null;
-  //     }
-  //     if (eyeViolationTimeoutRef.current) {
-  //       clearTimeout(eyeViolationTimeoutRef.current);
-  //       eyeViolationTimeoutRef.current = null;
-  //     }
-  //     if (avatarVideoTimeoutRef.current) {
-  //       clearTimeout(avatarVideoTimeoutRef.current);
-  //       avatarVideoTimeoutRef.current = null;
-  //     }
-
-  //     cleanupResources();
-  //     await room.disconnect();
-
-  //     setIsConnected(false);
-  //     setIsAgentSpeaking(false);
-  //     setHasVideo(false);
-  //     setIsVideoOn(false);
-  //     setVideoTrack(null);
-  //     setStatus("Disconnected");
-  //     setIsConnecting(false);
-  //     currentAgentSegmentRef.current = null;
-
-  //     navigate("/feedback", {
-  //       state: {
-  //         transcript: transcript,
-  //         roomId: roomId,
-  //         interviewName: interviewName,
-  //         duration: "Session ended",
-  //       },
-  //     });
-
-  //     setTranscript([]);
-  //     isConnectingRef.current = false;
-  //   } catch (error) {
-  //     console.error("Error during disconnect:", error);
-  //     roomRef.current = null;
-  //     isConnectingRef.current = false;
-  //     isDisconnectingRef.current = false;
-  //   }
-  // };
-
-
   const disconnectFromRoom = async () => {
     if (!roomRef.current || isDisconnectingRef.current) {
       return;
@@ -729,10 +588,6 @@ const InterviewRoom = () => {
         clearTimeout(eyeViolationTimeoutRef.current);
         eyeViolationTimeoutRef.current = null;
       }
-      if (avatarVideoTimeoutRef.current) {
-        clearTimeout(avatarVideoTimeoutRef.current);
-        avatarVideoTimeoutRef.current = null;
-      }
 
       cleanupResources();
       await room.disconnect();
@@ -743,13 +598,10 @@ const InterviewRoom = () => {
           if (document.exitFullscreen) {
             await document.exitFullscreen();
           } else if (document.webkitExitFullscreen) {
-            // Safari support
             await document.webkitExitFullscreen();
           } else if (document.mozCancelFullScreen) {
-            // Firefox support
             await document.mozCancelFullScreen();
           } else if (document.msExitFullscreen) {
-            // IE11 support
             await document.msExitFullscreen();
           }
         } catch (error) {
@@ -784,7 +636,6 @@ const InterviewRoom = () => {
       isDisconnectingRef.current = false;
     }
   };
-
 
   const handleMuteToggle = async () => {
     if (roomRef.current) {
@@ -893,38 +744,6 @@ const InterviewRoom = () => {
     }
   };
 
-  // useEffect(() => {
-  //   if (!isConnected || isDisconnectingRef.current) {
-  //     return;
-  //   }
-
-  //   if (violationTimeoutRef.current) {
-  //     clearTimeout(violationTimeoutRef.current);
-  //     violationTimeoutRef.current = null;
-  //   }
-
-  //   if (participantViolationCount > 1) {
-  //     alert(
-  //       `VIOLATION DETECTED!\n\nMultiple participants detected on screen (${participantViolationCount}).\n\nOnly 1 participant is allowed during the interview.\n\nYou will be disconnected in 5 seconds.`,
-  //     );
-
-  //     violationTimeoutRef.current = setTimeout(() => {
-  //       alert("Interview terminated due to multiple participants violation.");
-  //       disconnectFromRoom();
-  //     }, 1000);
-  //   }
-
-  //   return () => {
-  //     if (violationTimeoutRef.current) {
-  //       clearTimeout(violationTimeoutRef.current);
-  //       violationTimeoutRef.current = null;
-  //     }
-  //   };
-  // }, [participantViolationCount, isConnected]);
-
-  <Toaster position="top-center" />
-
-  // In your useEffect
   useEffect(() => {
     if (!isConnected || isDisconnectingRef.current) {
       return;
@@ -973,9 +792,6 @@ const InterviewRoom = () => {
       if (eyeViolationTimeoutRef.current) {
         clearTimeout(eyeViolationTimeoutRef.current);
       }
-      if (avatarVideoTimeoutRef.current) {
-        clearTimeout(avatarVideoTimeoutRef.current);
-      }
       cleanupResources();
       if (roomRef.current) {
         roomRef.current
@@ -986,68 +802,6 @@ const InterviewRoom = () => {
   }, []);
 
   return (
-    // <>
-    //   <Toaster />
-    //   <ConnectionLoadingModal isVisible={isConnecting} />
-    //   <div className="h-screen bg-base-300 text-white flex flex-col overflow-hidden">
-    //     <Header
-    //       interviewName={interviewName}
-    //       isRecording={isRecording}
-    //       onRecordToggle={toggleRecording}
-    //       isConnected={isConnected}
-    //       onDisconnect={disconnectFromRoom}
-    //       onConnect={connectToRoom}
-    //       codeValue={codeValue}
-    //       setCodeValue={setCodeValue}
-    //       output={output}
-    //       setOutput={setOutput}
-    //       handleCodeSubmit={handleCodeSubmit}
-    //       language={language}
-    //       setLanguage={setLanguage}
-    //       analysis={analysis}
-    //       loadingAnalysis={loadingAnalysis}
-    //     />
-
-    //     <div className="flex-1 flex gap-2 sm:gap-3 md:gap-4 p-2 sm:p-3 md:p-4 overflow-hidden">
-    //       <div className="w-full lg:w-[55vw] xl:w-[900px] flex flex-col min-w-0">
-    //         <TranscriptPanel
-    //           transcript={transcript}
-    //           isAgentSpeaking={isAgentSpeaking}
-    //           onSendMessage={handleSendMessage}
-    //           messageInputDisabled={!isConnected}
-    //         />
-    //       </div>
-
-    //       <div className="flex-1 flex flex-col gap-2 sm:gap-3 md:gap-4 overflow-y-auto min-w-0">
-    //         <div className="flex justify-center items-center bg-black rounded-lg sm:rounded-xl shadow-lg overflow-hidden">
-    //           <div className="w-full max-w-[400px] aspect-[10/7]">
-    //             <AvatarVideo videoTrack={videoTrack} />
-    //           </div>
-    //         </div>
-
-    //         <VideoPanel
-    //           isConnected={isConnected}
-    //           videoRef={videoRef}
-    //           hasVideo={hasVideo}
-    //           onParticipantCountChange={setParticipantViolationCount}
-    //           onEyeViolationCountChange={setEyeMovementViolations}
-    //         />
-
-    //         <ControlButtons
-    //           isMuted={isMuted}
-    //           isVideoOn={isVideoOn}
-    //           onMuteToggle={handleMuteToggle}
-    //           onVideoToggle={handleVideoToggle}
-    //           disabled={!isConnected}
-    //           onMicChange={handleMicChange}
-    //           currentMicId={currentMicId}
-    //           room={roomRef.current}
-    //           isAgentSpeaking={isAgentSpeaking}
-    //         />
-    //       </div>
-    //     </div>
-    //   </div>
-    // </>
     <>
       <Toaster />
       <ConnectionLoadingModal isVisible={isConnecting} />
@@ -1086,7 +840,10 @@ const InterviewRoom = () => {
             {/* Avatar Video */}
             <div className="flex justify-center items-center bg-base-300 rounded-xl shadow-lg overflow-hidden">
               <div className="w-full max-w-full lg:max-w-[450px] xl:max-w-[500px] aspect-[10/7]">
-                <AvatarVideo videoTrack={videoTrack} />
+                <AvatarVideo 
+                  videoTrack={videoTrack} 
+                  onVideoReady={handleAvatarVideoReady}
+                />
               </div>
             </div>
 
@@ -1111,9 +868,7 @@ const InterviewRoom = () => {
         </div>
       </div>
     </>
-
   );
 };
 
 export default InterviewRoom;
-
