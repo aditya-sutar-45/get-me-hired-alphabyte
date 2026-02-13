@@ -1,9 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
 import PropTypes from 'prop-types';
 
-export default function AvatarVideo({ videoTrack }) {
+export default function AvatarVideo({ videoTrack, onVideoReady }) {
   const videoRef = useRef(null);
   const [isReady, setIsReady] = useState(false);
+  const onVideoReadyRef = useRef(onVideoReady);
+
+  // Keep the callback ref updated
+  useEffect(() => {
+    onVideoReadyRef.current = onVideoReady;
+  }, [onVideoReady]);
 
   useEffect(() => {
     if (videoTrack && videoRef.current) {
@@ -14,6 +20,14 @@ export default function AvatarVideo({ videoTrack }) {
         setIsReady(true);
         videoRef.current.play().catch(e => console.error("Error playing video:", e));
       };
+
+      // Notify parent when video is actually playing and visible
+      videoRef.current.onplaying = () => {
+        console.log("Avatar video is now playing on screen");
+        if (onVideoReadyRef.current) {
+          onVideoReadyRef.current();
+        }
+      };
     }
 
     // Cleanup on unmount or track change
@@ -22,7 +36,7 @@ export default function AvatarVideo({ videoTrack }) {
         videoTrack.detach(videoRef.current);
       }
     };
-  }, [videoTrack]);
+  }, [videoTrack]); // Only depend on videoTrack, not onVideoReady
 
   return (
     <div className="w-full h-full relative">
@@ -49,4 +63,5 @@ export default function AvatarVideo({ videoTrack }) {
 
 AvatarVideo.propTypes = {
   videoTrack: PropTypes.object,
+  onVideoReady: PropTypes.func,
 };
