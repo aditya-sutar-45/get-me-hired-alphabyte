@@ -13,6 +13,7 @@ from llm.prompts import interview_prompt
 load_dotenv()
 
 # llm = init_chat_model("gemini-2.5-flash", model_provider="google_genai")
+# idk
 llm = ChatOllama(
     model=os.environ["OLLAMA_MODEL_NAME"],
     temperature=0.1,
