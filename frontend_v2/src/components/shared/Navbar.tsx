@@ -40,7 +40,9 @@ export default function Navbar() {
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-6">
-          <Button size="sm">Login</Button>
+          <Link to={"/auth/register"}>
+            <Button size="sm">Register</Button>
+          </Link>
           <ModeToggle />
         </div>
 
@@ -74,7 +76,9 @@ export default function Navbar() {
                 {item.name}
               </NavLink>
             ))}
-            <Button size="sm">Login</Button>
+            <Link to={"/auth/register"}>
+              <Button size="sm">Login</Button>
+            </Link>
           </div>
         </div>
       )}

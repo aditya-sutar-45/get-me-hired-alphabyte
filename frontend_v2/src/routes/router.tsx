@@ -1,4 +1,5 @@
 import RootLayout from "@/layouts/RootLayout";
+import RegisterPage from "@/pages/auth/RegisterPage";
 import JobDetailsPage from "@/pages/Jobs/JobDetails";
 import JobsPage from "@/pages/Jobs/JobsPage";
 import LandingPage from "@/pages/Landing/LandingPage";
@@ -21,6 +22,10 @@ export const router = createBrowserRouter([
       {
         path: "jobs/:id",
         element: <JobDetailsPage />,
+      },
+      {
+        path: "/auth/register",
+        element: <RegisterPage />,
       }
     ]
   }
