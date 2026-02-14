@@ -16,10 +16,77 @@ from llm.feedback_chain import generate_pairs, get_feedback, retrieve_context
 from llm.ingest_custom import fetch_default_docs, ingest_kb, search_kb
 from parsing.resume import get_text_from_resume, parse_resume_from_text
 
+import asyncio
+import logging
+
 load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("avatar-control")
+
+# Store active avatar sessions
+active_avatar_sessions = {}
+
+# @app.route("/create-room", methods=["POST"])
+# def create_room_with_metadata():
+#     """Generate token with job metadata in participant metadata"""
+#     try:
+#         data = request.json
+#         participant_name = data.get("participant", "user")
+#         job_data = data.get("jobData", {})
+#         resume_data = data.get("resumeData", "")
+
+#         # Create unique room name
+#         room_name = f"interview-{participant_name}-{int(time.time())}"
+
+#         print(f"Creating token for room: {room_name}")
+#         print(f"Job data: {job_data}")
+#         print(f"Resume: {resume_data}")
+
+#         # Create access token with metadata
+#         token = api.AccessToken(
+#             api_key=os.getenv("LIVEKIT_API_KEY"),
+#             api_secret=os.getenv("LIVEKIT_API_SECRET"),
+#         )
+
+#         metadata = {
+#             "jobData": job_data,
+#             "resumeData": resume_data,
+#         }
+
+#         # Add job data as participant metadata
+#         token.with_identity(participant_name).with_name(participant_name).with_metadata(
+#             json.dumps(metadata)
+#         ).with_grants(
+#             api.VideoGrants(
+#                 room_join=True,
+#                 room=room_name,
+#                 can_publish=True,
+#                 can_subscribe=True,
+#             )
+#         )
+
+#         jwt_token = token.to_jwt()
+
+#         print(f"Token generated successfully for room: {room_name}")
+
+#         return jsonify(
+#             {
+#                 "token": jwt_token,
+#                 "url": os.getenv("LIVEKIT_URL"),
+#                 "room_name": room_name,
+#             }
+#         )
+
+#     except Exception as e:
+#         print(f"Error in create_room_with_metadata: {e}")
+#         import traceback
+
+#         traceback.print_exc()
+#         return jsonify({"error": str(e)}), 500
 
 
 @app.route("/create-room", methods=["POST"])
@@ -30,6 +97,7 @@ def create_room_with_metadata():
         participant_name = data.get("participant", "user")
         job_data = data.get("jobData", {})
         resume_data = data.get("resumeData", "")
+        enable_avatar = data.get("enableAvatar", True)  # ← NEW: Default True for backward compatibility
 
         # Create unique room name
         room_name = f"interview-{participant_name}-{int(time.time())}"
@@ -37,6 +105,7 @@ def create_room_with_metadata():
         print(f"Creating token for room: {room_name}")
         print(f"Job data: {job_data}")
         print(f"Resume: {resume_data}")
+        print(f"Avatar enabled: {enable_avatar}")  # ← NEW: Log avatar preference
 
         # Create access token with metadata
         token = api.AccessToken(
@@ -44,9 +113,11 @@ def create_room_with_metadata():
             api_secret=os.getenv("LIVEKIT_API_SECRET"),
         )
 
+        # ← MODIFIED: Include enableAvatar in metadata
         metadata = {
             "jobData": job_data,
             "resumeData": resume_data,
+            "enableAvatar": enable_avatar,  # ← NEW: Pass avatar preference to agent
         }
 
         # Add job data as participant metadata
@@ -65,11 +136,13 @@ def create_room_with_metadata():
 
         print(f"Token generated successfully for room: {room_name}")
 
+        # ← MODIFIED: Include avatar_enabled in response
         return jsonify(
             {
                 "token": jwt_token,
                 "url": os.getenv("LIVEKIT_URL"),
                 "room_name": room_name,
+                "avatar_enabled": enable_avatar,  # ← NEW: Return avatar status
             }
         )
 
@@ -268,6 +341,206 @@ def generate_feedback():
 def health_check():
     """Health check endpoint"""
     return jsonify({"status": "ok", "message": "Backend is running"})
+
+
+@app.route("/start-avatar", methods=["POST"])
+def start_avatar():
+    """
+    Start avatar session for a room
+    This endpoint signals the LiveKit agent to start the avatar
+    """
+    try:
+        data = request.json
+        room_name = data.get("room_name")
+        
+        if not room_name:
+            return jsonify({"error": "room_name is required"}), 400
+        
+        if room_name not in active_avatar_sessions:
+            return jsonify({"error": "Room not found"}), 404
+        
+        session_info = active_avatar_sessions[room_name]
+        
+        if session_info["enabled"] and session_info["session_id"]:
+            return jsonify({
+                "message": "Avatar already running",
+                "session_id": session_info["session_id"]
+            }), 200
+        
+        # Generate session ID
+        import uuid
+        session_id = f"avatar-{uuid.uuid4().hex[:12]}"
+        
+        # Update session info
+        active_avatar_sessions[room_name]["enabled"] = True
+        active_avatar_sessions[room_name]["session_id"] = session_id
+        
+        logger.info(f"Avatar session started: {session_id} for room: {room_name}")
+        
+        # Here you would signal the LiveKit agent to start the avatar
+        # This could be done via:
+        # 1. Publishing a data message to the room
+        # 2. Using LiveKit API to send a signal
+        # 3. Using a separate message queue/webhook
+        
+        # Example using LiveKit API to send data message:
+        # (You'll need to implement this based on your agent architecture)
+        try:
+            # Send signal to agent to start avatar
+            asyncio.run(signal_agent_start_avatar(room_name, session_id))
+        except Exception as e:
+            logger.warning(f"Could not signal agent: {e}")
+        
+        return jsonify({
+            "success": True,
+            "session_id": session_id,
+            "message": "Avatar session started"
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error starting avatar: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/stop-avatar", methods=["POST"])
+def stop_avatar():
+    """
+    Stop avatar session for a room
+    This completely shuts down the avatar to save tokens
+    """
+    try:
+        data = request.json
+        room_name = data.get("room_name")
+        session_id = data.get("session_id")
+        
+        if not room_name:
+            return jsonify({"error": "room_name is required"}), 400
+        
+        if room_name not in active_avatar_sessions:
+            return jsonify({"error": "Room not found"}), 404
+        
+        session_info = active_avatar_sessions[room_name]
+        
+        if not session_info["enabled"]:
+            return jsonify({"message": "Avatar already stopped"}), 200
+        
+        # Update session info
+        active_avatar_sessions[room_name]["enabled"] = False
+        active_avatar_sessions[room_name]["session_id"] = None
+        
+        logger.info(f"Avatar session stopped: {session_id} for room: {room_name}")
+        
+        # Signal the agent to stop avatar
+        try:
+            asyncio.run(signal_agent_stop_avatar(room_name, session_id))
+        except Exception as e:
+            logger.warning(f"Could not signal agent: {e}")
+        
+        return jsonify({
+            "success": True,
+            "message": "Avatar session stopped"
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error stopping avatar: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+async def signal_agent_start_avatar(room_name: str, session_id: str):
+    """
+    Signal the LiveKit agent to start avatar session
+    """
+    # Implementation depends on your agent architecture
+    # Option 1: Use LiveKit Data API to send message to agent
+    # Option 2: Use a separate signaling mechanism (Redis, WebSocket, etc.)
+    
+    logger.info(f"Signaling agent to START avatar: {session_id} in room: {room_name}")
+    
+    # Example: You could publish a data message to the room
+    # that your agent listens for
+    try:
+        from livekit import api
+        
+        lk_api = api.LiveKitAPI(
+            url=os.getenv("LIVEKIT_URL"),
+            api_key=os.getenv("LIVEKIT_API_KEY"),
+            api_secret=os.getenv("LIVEKIT_API_SECRET"),
+        )
+        
+        # Send data to room (agent should listen for this)
+        await lk_api.room.send_data(
+            api.SendDataRequest(
+                room=room_name,
+                data=json.dumps({
+                    "type": "avatar_control",
+                    "action": "start",
+                    "session_id": session_id
+                }).encode(),
+                topic="avatar_control"
+            )
+        )
+        
+        logger.info("Avatar start signal sent successfully")
+    except Exception as e:
+        logger.error(f"Error sending avatar start signal: {e}")
+        raise
+
+
+async def signal_agent_stop_avatar(room_name: str, session_id: str):
+    """
+    Signal the LiveKit agent to stop avatar session
+    """
+    logger.info(f"Signaling agent to STOP avatar: {session_id} in room: {room_name}")
+    
+    try:
+        from livekit import api
+        
+        lk_api = api.LiveKitAPI(
+            url=os.getenv("LIVEKIT_URL"),
+            api_key=os.getenv("LIVEKIT_API_KEY"),
+            api_secret=os.getenv("LIVEKIT_API_SECRET"),
+        )
+        
+        # Send data to room
+        await lk_api.room.send_data(
+            api.SendDataRequest(
+                room=room_name,
+                data=json.dumps({
+                    "type": "avatar_control",
+                    "action": "stop",
+                    "session_id": session_id
+                }).encode(),
+                topic="avatar_control"
+            )
+        )
+        
+        logger.info("Avatar stop signal sent successfully")
+    except Exception as e:
+        logger.error(f"Error sending avatar stop signal: {e}")
+        raise
+
+
+@app.route("/avatar-status/<room_name>", methods=["GET"])
+def get_avatar_status(room_name):
+    """
+    Get current avatar status for a room
+    """
+    try:
+        if room_name not in active_avatar_sessions:
+            return jsonify({"error": "Room not found"}), 404
+        
+        session_info = active_avatar_sessions[room_name]
+        
+        return jsonify({
+            "room_name": room_name,
+            "enabled": session_info["enabled"],
+            "session_id": session_info["session_id"],
+            "participant": session_info["participant"]
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error getting avatar status: {e}")
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

@@ -14,9 +14,11 @@ from livekit.plugins import (
     deepgram,
     silero,
     langchain as lk_langchain,
-    bey,  # Correct import name
+    bey,
 )
 from llm.livekit_llm import create_workflow
+import asyncio
+
 
 
 load_dotenv()
@@ -32,16 +34,24 @@ async def entrypoint(ctx: JobContext):
 
     participant = await ctx.wait_for_participant()
 
+    # Parse metadata
     job_metadata = {}
     resume = ""
+    enable_avatar = True  # Default to True
+    
     if participant.metadata:
         try:
             metadata = json.loads(participant.metadata)
             job_metadata = metadata.get("jobData", {})
             resume = metadata.get("resumeData", "")
-            logger.info(f"Loaded job metadata from participant: {job_metadata}")
+            enable_avatar = metadata.get("enableAvatar", True)  # Get from metadata
+            
+            logger.info(f"✅ Loaded metadata successfully")
+            logger.info(f"   Enable Avatar: {enable_avatar}")
+            logger.info(f"   Job: {job_metadata.get('title', 'Unknown')}")
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse participant metadata: {e}")
+            enable_avatar = True  # Default if parsing fails
 
     company_name = job_metadata.get("companyName", "Unknown Company")
     job_title = job_metadata.get("title", "Software Developer")
@@ -52,7 +62,6 @@ async def entrypoint(ctx: JobContext):
 
     logger.info(f"Interview for: {company_name} - {job_title}")
     logger.info(f"Required languages: {', '.join(languages)}")
-    logger.info(f"participant resume details: {resume[:100]}....")
 
     # Create Agent
     agent = Agent(
@@ -127,48 +136,88 @@ async def entrypoint(ctx: JobContext):
         max_tool_steps=3,
     )
 
-    # ========== BEYOND PRESENCE (BEY) AVATAR INTEGRATION ==========
-    # Get Beyond Presence credentials from environment
-    bey_api_key = os.getenv("BEY_API_KEY")
-    bey_avatar_id = os.getenv("BEY_AVATAR_ID")
+    # CONDITIONALLY start avatar based on metadata
+    avatar_session = None
+    
+    if enable_avatar:
+        try:
+            bey_api_key = os.getenv("BEY_API_KEY")
+            bey_avatar_id = os.getenv("BEY_AVATAR_ID")
 
-    logger.info(f"Initializing Beyond Presence avatar with avatar_id: {bey_avatar_id}")
+            logger.info(f"🎬 Initializing Beyond Presence avatar")
+            logger.info(f"   Avatar ID: {bey_avatar_id}")
 
-    # Create Beyond Presence Avatar Session
-    avatar = bey.AvatarSession(
-        api_key=bey_api_key,
-        avatar_id=bey_avatar_id,
-        avatar_participant_name="AI-Interviewer-Avatar",  # Optional: Custom name
-    )
+            # Create Beyond Presence Avatar Session
+            avatar_session = bey.AvatarSession(
+                api_key=bey_api_key,
+                avatar_id=bey_avatar_id,
+                avatar_participant_name="AI-Interviewer-Avatar", 
+            )
 
-    # Start the avatar first (it joins as a separate participant)
-    await avatar.start(session, room=ctx.room)
-    logger.info("Beyond Presence avatar started and joined the room")
-    # ===============================================
+            # Start the avatar first
+            await avatar_session.start(session, room=ctx.room)
+            logger.info("✅ Beyond Presence avatar started and joined the room")
 
-    # Start the agent session with audio OUTPUT disabled (avatar handles it)
+
+            # try:
+            #     logger.info("⏳ Starting avatar with 25s timeout...")
+
+            #     await asyncio.wait_for(
+            #         avatar_session.start(session, room=ctx.room),
+            #         timeout=5   # seconds
+            #     )
+
+            #     logger.info("✅ Beyond Presence avatar started and joined the room")
+
+            # except asyncio.TimeoutError:
+            #     logger.error("❌ Avatar start TIMEOUT (25s exceeded)")
+            #     logger.error("   Continuing without avatar...")
+            #     avatar_session = None
+            #     enable_avatar = False
+
+            # except Exception as e:
+            #     logger.error(f"❌ Failed to start avatar: {e}")
+            #     logger.error("   Continuing without avatar...")
+            #     avatar_session = None
+            #     enable_avatar = False
+
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to start avatar: {e}")
+            logger.error(f"   Continuing without avatar...")
+            avatar_session = None
+            enable_avatar = False
+    else:
+        logger.info("⏭️  Skipping avatar initialization (disabled by user)")
+
+    # Start agent session
+    # Disable audio OUTPUT if avatar is handling it
     await session.start(
         room=ctx.room,
         agent=agent,
         room_input_options=RoomInputOptions(
             text_enabled=True,
-            audio_enabled=True,  # Keep audio INPUT enabled to hear candidate
+            audio_enabled=True,  # Always listen to user
         ),
         room_output_options=RoomOutputOptions(
-            audio_enabled=False,  # Disable audio OUTPUT (avatar provides audio+video)
+            # Only disable audio if avatar is successfully running
+            audio_enabled=(not enable_avatar or avatar_session is None),
         ),
     )
-    logger.info("AI Interview Agent started successfully with Beyond Presence avatar")
+    
+    logger.info(f"✅ AI Interview Agent started successfully")
+    logger.info(f"   Avatar active: {avatar_session is not None}")
+    logger.info(f"   Audio output: {not enable_avatar or avatar_session is None}")
 
     # Initial greeting
-    await session.say(
+    greeting = (
         f"Welcome to your interview for the {job_title} role at {company_name}. "
-        f"I’ve gone through your resume and noticed your background in {', '.join(languages[:2])}. "
-        f"Let’s start with a quick introduction could you tell me a bit about yourself and your professional journey?",
-        allow_interruptions=True,
+        f"I've gone through your resume and noticed your background in {', '.join(languages[:2])}. "
+        f"Let's start with a quick introduction — could you tell me a bit about yourself and your professional journey?"
     )
-
-    logger.info("Initial greeting sent with job-specific context")
+    
+    await session.say(greeting, allow_interruptions=True)
+    logger.info("✅ Initial greeting sent")
 
 
 if __name__ == "__main__":
