@@ -10,18 +10,18 @@ export default function RegisterPage() {
   const [role, setRole] = useState<Role>("user")
 
   return (
-    <div className="flex min-h-screen items-center justify-center">
-      <Card className="w-full max-w-lg">
+    <div className="flex h-full items-center justify-center">
+      <Card className="w-full h-[85vh] max-w-lg bg-base text-secondary-foreground">
         <CardHeader>
           <CardTitle className="text-center text-2xl">
             Create an Account
           </CardTitle>
         </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
+        <CardContent className="flex flex-col h-full">
+          <div className="flex gap-2 w-full">
             <Button
-              variant={role === "user" ? "outline" : "secondary"}
+              variant={role === "user" ? "outline" : "ghost"}
               className="flex-1"
               onClick={() => setRole("user")}
             >
@@ -29,7 +29,7 @@ export default function RegisterPage() {
             </Button>
 
             <Button
-              variant={role === "company" ? "outline" : "secondary"}
+              variant={role === "company" ? "outline" : "ghost"}
               className="flex-1"
               onClick={() => setRole("company")}
             >
@@ -37,12 +37,18 @@ export default function RegisterPage() {
             </Button>
           </div>
 
-          {role === "user" ? (
-            <UserRegisterForm />
-          ) : (
-            <CompanyRegisterForm />
-          )}
+          {/* Form container */}
+          <div className="flex flex-1 items-center justify-center">
+            <div className="w-full">
+              {role === "user" ? (
+                <UserRegisterForm />
+              ) : (
+                <CompanyRegisterForm />
+              )}
+            </div>
+          </div>
         </CardContent>
+
       </Card>
     </div>
   )

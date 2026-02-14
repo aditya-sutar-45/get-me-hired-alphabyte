@@ -22,6 +22,8 @@ export const registerUser = async (u: UserRegisterPayload) => {
   if (!res.ok) {
     throw new Error("Failed to register user");
   }
+
+  return res;
 }
 
 export const registerCompany = async (c: CompanyRegisterPayload) => {
@@ -42,9 +44,11 @@ export const registerCompany = async (c: CompanyRegisterPayload) => {
   if (!res.ok) {
     throw new Error("Failed to register company")
   }
+
+  return res;
 }
 
-export const login = async (l: LoginPayload) => {
+export const loginHelper = async (l: LoginPayload) => {
   const username = l.username;
   const password = l.password;
 
@@ -58,13 +62,11 @@ export const login = async (l: LoginPayload) => {
   return res
 }
 
-export const fetchUser = async () => {
+export const fetchUserHelper = async () => {
   const res = await fetch(`${BASE_URL}/user`, {
     method: "GET",
     credentials: "include",
   });
-
-  if (!res.ok) throw new Error("failed to fetch user");
 
   return res;
 }

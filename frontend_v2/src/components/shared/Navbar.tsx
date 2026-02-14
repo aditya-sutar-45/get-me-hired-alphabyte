@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils"
 import { ModeToggle } from "./mode-toggle"
 
 export default function Navbar() {
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   const navItems = [
     { name: "Home", path: "/" },
@@ -14,8 +14,8 @@ export default function Navbar() {
   ]
 
   return (
-    <nav className="border-b bg-background sticky top-0 z-50">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+    <nav className={`sticky border-b bg-background top-0 z-50`}>
+      <div className="container mx-auto h-[7vh] flex items-center justify-between px-4">
         {/* Logo */}
         <Link to="/" className="text-lg font-semibold tracking-tight mr-2">
           Get-Me-Hired

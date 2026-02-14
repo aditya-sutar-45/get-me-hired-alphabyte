@@ -10,9 +10,11 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form"
-
+import { useAuth } from "@/hooks/useAuth"
 
 export function UserRegisterForm() {
+  const { registerAsUser, loading, authError } = useAuth()
+
   const form = useForm<UserRegisterPayload>({
     defaultValues: {
       username: "",
@@ -22,17 +24,17 @@ export function UserRegisterForm() {
     },
   })
 
-  function onSubmit(values: UserRegisterPayload) {
-    console.log("User Register:", values)
-    // TODO: call your API here
+  async function onSubmit(values: UserRegisterPayload) {
+    await registerAsUser(values)
   }
 
   return (
     <Form {...form}>
       <form
         onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-2"
+        className="space-y-4"
       >
+        {/* Username */}
         <FormField
           control={form.control}
           name="username"
@@ -41,13 +43,18 @@ export function UserRegisterForm() {
             <FormItem>
               <FormLabel>Username</FormLabel>
               <FormControl>
-                <Input placeholder="username" {...field} />
+                <Input
+                  placeholder="username"
+                  {...field}
+                  disabled={loading}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Email */}
         <FormField
           control={form.control}
           name="email"
@@ -62,13 +69,18 @@ export function UserRegisterForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input placeholder="you@example.com" {...field} />
+                <Input
+                  placeholder="you@example.com"
+                  {...field}
+                  disabled={loading}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Password */}
         <FormField
           control={form.control}
           name="password"
@@ -83,13 +95,18 @@ export function UserRegisterForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input type="password" {...field} />
+                <Input
+                  type="password"
+                  {...field}
+                  disabled={loading}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
 
+        {/* Resume File */}
         <FormField
           control={form.control}
           name="resumeFile"
@@ -101,8 +118,7 @@ export function UserRegisterForm() {
                 <Input
                   type="file"
                   accept=".pdf,.doc,.docx"
-                  ref={field.ref}
-                  onBlur={field.onBlur}
+                  disabled={loading}
                   onChange={(e) => {
                     const file = e.target.files?.[0] ?? null
                     field.onChange(file)
@@ -114,8 +130,20 @@ export function UserRegisterForm() {
           )}
         />
 
-        <Button type="submit" className="w-full">
-          Register as User
+        {/* Auth Error from Backend */}
+        {authError && (
+          <p className="text-sm text-red-500">
+            {authError}
+          </p>
+        )}
+
+        {/* Submit Button */}
+        <Button
+          type="submit"
+          className="w-full"
+          disabled={loading}
+        >
+          {loading ? "Registering..." : "Register as User"}
         </Button>
       </form>
     </Form>
