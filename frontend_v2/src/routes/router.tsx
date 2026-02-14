@@ -1,6 +1,9 @@
-import App from "@/App";
 import RootLayout from "@/layouts/RootLayout";
+import JobDetailsPage from "@/pages/Jobs/JobDetails";
+import JobsPage from "@/pages/Jobs/JobsPage";
+import LandingPage from "@/pages/Landing/LandingPage";
 import { createBrowserRouter } from "react-router-dom";
+
 
 export const router = createBrowserRouter([
   {
@@ -9,15 +12,16 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <App />
+        element: <LandingPage />
       },
-      /*
       {
-        a /foo route
-        path: "foo",
-        element: <Bar/>,
+        path: "jobs",
+        element: <JobsPage />,
+      },
+      {
+        path: "jobs/:id",
+        element: <JobDetailsPage />,
       }
-      */
     ]
   }
 ])

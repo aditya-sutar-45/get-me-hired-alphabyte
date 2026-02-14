@@ -3,10 +3,9 @@ import Navbar from "@/components/shared/Navbar"
 
 export default function RootLayout() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-screen w-screen m-0 p-0 flex flex-col">
       <Navbar />
-
-      <main className="flex-1 p-6">
+      <main className="flex-1">
         <Outlet />
       </main>
     </div>
