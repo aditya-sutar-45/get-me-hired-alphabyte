@@ -5,6 +5,7 @@ import TranscriptPanel from "../components/InterviewRoom/TranscriptPanel";
 import VideoPanel from "../components/InterviewRoom/VideoPanel";
 import ControlButtons from "../components/InterviewRoom/ControlButtons";
 import AvatarVideo from "../components/InterviewRoom/AvatarVideo";
+import AvatarConfirmationModal from "../components/InterviewRoom/Avatarconfirmationmodal";
 import ConnectionLoadingModal from "../components/InterviewRoom/ConnectionLoadingModal";
 import toast, { Toaster } from "react-hot-toast";
 import { io } from "socket.io-client";
@@ -31,6 +32,10 @@ const InterviewRoom = () => {
 
   const [codeValue, setCodeValue] = useState("");
   const [output, setOutput] = useState("");
+
+  // Avatar control states - SIMPLIFIED (no toggle button)
+  const [showAvatarConfirmation, setShowAvatarConfirmation] = useState(false);
+  const [isAvatarEnabled, setIsAvatarEnabled] = useState(false);
 
   // Violation tracking states
   const [participantViolationCount, setParticipantViolationCount] = useState(0);
@@ -132,10 +137,6 @@ const InterviewRoom = () => {
   const animationFrameIdsRef = useRef([]);
   const isConnectingRef = useRef(false);
 
-  // REMOVED: avatarJoinedRef and avatarVideoTimeoutRef - no longer needed
-  // We now rely on the actual video playing event
-
-  // NEW: Track current agent segment for live streaming
   const currentAgentSegmentRef = useRef(null);
   const agentSpeechDetectionTimeoutRef = useRef(null);
 
@@ -209,7 +210,6 @@ const InterviewRoom = () => {
       ];
     });
 
-    // Reset current segment tracking when final transcript is received
     if (speaker === "Agent" && currentAgentSegmentRef.current === segmentId) {
       currentAgentSegmentRef.current = null;
     }
@@ -218,7 +218,6 @@ const InterviewRoom = () => {
   const addInterimTranscript = (speaker, text, segmentId) => {
     if (!text || !text.trim()) return;
 
-    // Track current agent segment for streaming
     if (speaker === "Agent") {
       currentAgentSegmentRef.current = segmentId;
     }
@@ -239,20 +238,37 @@ const InterviewRoom = () => {
     });
   };
 
-  // NEW: Handler for when avatar video is actually playing
   const handleAvatarVideoReady = () => {
-    console.log("✅ Avatar video is now visible on screen - closing loading modal");
+    console.log("✅ Avatar video is now visible - closing loading modal");
     setIsConnecting(false);
   };
 
-  const connectToRoom = async () => {
+  // Handle initial avatar confirmation
+  const handleAvatarConfirm = () => {
+    console.log("✅ User confirmed: Load avatar");
+    setShowAvatarConfirmation(false);
+    setIsAvatarEnabled(true);
+    // Now connect to room
+    connectToRoomWithAvatar(true);
+  };
+
+  const handleAvatarDecline = () => {
+    console.log("⏭️  User declined: Skip avatar, show Spline animation");
+    setShowAvatarConfirmation(false);
+    setIsAvatarEnabled(false);
+    toast.success("Starting interview with 3D animation");
+    // Connect without avatar
+    connectToRoomWithAvatar(false);
+  };
+
+  const connectToRoomWithAvatar = async (enableAvatar) => {
     if (isConnectingRef.current || roomRef.current) {
       return;
     }
 
     try {
       isConnectingRef.current = true;
-      setIsConnecting(true);
+      setIsConnecting(enableAvatar); // Only show loading if avatar enabled
       setStatus("Connecting...");
 
       const jobData = location.state?.jobData || {
@@ -265,6 +281,8 @@ const InterviewRoom = () => {
       const participantName =
         user?.username || "User-" + Math.random().toString(36).substr(2, 9);
 
+      console.log("📡 Creating room with avatar:", enableAvatar);
+
       const response = await fetch("http://localhost:5000/create-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -272,14 +290,18 @@ const InterviewRoom = () => {
           participant: participantName,
           jobData: jobData,
           resumeData: user?.parsed_resume || "",
+          enableAvatar: enableAvatar, // Send avatar preference
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to create room. Make sure backend is running.");
+        const errorText = await response.text();
+        throw new Error(`Failed to create room: ${errorText}`);
       }
 
       const { token, url, room_name } = await response.json();
+      console.log("✅ Room created:", room_name);
+
       const LiveKit = await import("livekit-client");
 
       const room = new LiveKit.Room({
@@ -301,33 +323,47 @@ const InterviewRoom = () => {
         isConnectingRef.current = false;
 
         console.log("=== Room Connected ===");
-        console.log("All participants in room:");
-        room.remoteParticipants.forEach((participant) => {
-          console.log(
-            `- Identity: "${participant.identity}", Name: "${participant.name}"`,
-          );
-        });
+        
+        // ✅ FIXED: Check if remoteParticipants exists and is iterable
+        if (room.remoteParticipants && typeof room.remoteParticipants.forEach === 'function') {
+          console.log("All participants in room:");
+          room.remoteParticipants.forEach((participant) => {
+            console.log(
+              `- Identity: "${participant.identity}", Name: "${participant.name}"`,
+            );
+          });
+        } else {
+          console.log("Room connected, waiting for remote participants...");
+        }
 
-        // Check for existing avatar video tracks
-        room.remoteParticipants.forEach((participant) => {
-          participant.videoTracks.forEach((publication) => {
-            if (publication.isSubscribed && publication.videoTrack) {
-              const identity = participant.identity.toLowerCase();
-              if (
-                identity.includes("agent") ||
-                identity.includes("ai") ||
-                identity.includes("avatar") ||
-                identity.includes("interviewer")
-              ) {
-                console.log(
-                  `Setting video track from existing participant: ${participant.identity}`,
-                );
-                setVideoTrack(publication.videoTrack);
-                // Modal will close when video actually starts playing (via onVideoReady callback)
-              }
+        // If not using avatar, close loading immediately
+        if (!enableAvatar) {
+          setIsConnecting(false);
+        }
+
+        // ✅ FIXED: Check for existing avatar video tracks with null checks
+        if (room.remoteParticipants && typeof room.remoteParticipants.forEach === 'function') {
+          room.remoteParticipants.forEach((participant) => {
+            if (participant.videoTracks && typeof participant.videoTracks.forEach === 'function') {
+              participant.videoTracks.forEach((publication) => {
+                if (publication.isSubscribed && publication.videoTrack) {
+                  const identity = participant.identity.toLowerCase();
+                  if (
+                    identity.includes("agent") ||
+                    identity.includes("ai") ||
+                    identity.includes("avatar") ||
+                    identity.includes("interviewer")
+                  ) {
+                    console.log(
+                      `Setting video track from existing participant: ${participant.identity}`,
+                    );
+                    setVideoTrack(publication.videoTrack);
+                  }
+                }
+              });
             }
           });
-        });
+        }
 
         room.registerTextStreamHandler(
           "lk.transcription",
@@ -342,15 +378,6 @@ const InterviewRoom = () => {
                 reader.info.attributes["lk.segment_id"] ||
                 `segment-${Date.now()}-${Math.random()}`;
 
-              console.log("=== Transcription Received ===");
-              console.log("Participant Identity:", participantInfo.identity);
-              console.log("Participant Name:", participantInfo.name);
-              console.log("Message:", message);
-              console.log("Is Transcription:", isTranscription);
-              console.log("Is Final:", isFinal);
-              console.log("Segment ID:", segmentId);
-              console.log("All attributes:", reader.info.attributes);
-
               if (message.trim()) {
                 const identity = participantInfo.identity.toLowerCase();
 
@@ -364,11 +391,6 @@ const InterviewRoom = () => {
                   identity.includes("simli");
 
                 const speaker = isAgent ? "Agent" : "You";
-
-                console.log(`Detected speaker: ${speaker}`);
-                console.log(
-                  `   Identity matched: ${isAgent ? "YES (Agent)" : "NO (User)"}`,
-                );
 
                 if (speaker === "Agent") {
                   setIsAgentSpeaking(true);
@@ -387,18 +409,10 @@ const InterviewRoom = () => {
                 const shouldBeFinal = isFinal || (isAgent && !isTranscription);
 
                 if (shouldBeFinal) {
-                  console.log(
-                    `Adding FINAL transcript: ${speaker} - ${message}`,
-                  );
                   addFinalTranscript(speaker, message, segmentId);
                 } else {
-                  console.log(
-                    `Adding INTERIM transcript: ${speaker} - ${message}`,
-                  );
                   addInterimTranscript(speaker, message, segmentId);
                 }
-              } else {
-                console.log("Transcription skipped - empty message");
               }
             } catch (error) {
               console.error("Error processing transcription:", error);
@@ -425,15 +439,12 @@ const InterviewRoom = () => {
         console.log(`=== Participant Joined ===`);
         console.log(`Identity: "${participant.identity}"`);
         console.log(`Name: "${participant.name}"`);
-        // Modal will close when video actually starts playing (via onVideoReady callback)
       });
 
       room.on(LiveKit.RoomEvent.TrackPublished, (publication, participant) => {
         console.log(`=== Track Published ===`);
         console.log(`By: ${participant.identity}`);
         console.log(`Kind: ${publication.kind}`);
-        console.log(`Source: ${publication.source}`);
-        console.log(`Track Name: ${publication.trackName}`);
       });
 
       room.on(
@@ -515,10 +526,9 @@ const InterviewRoom = () => {
               identity.includes("interviewer")
             ) {
               console.log(
-                `Setting AGENT video track from: ${participant.identity}`,
+                `✅ Setting AGENT video track from: ${participant.identity}`,
               );
               setVideoTrack(track);
-              // Modal will close when video actually starts playing (via onVideoReady callback)
             } else {
               console.log(
                 `Setting USER video track from: ${participant.identity}`,
@@ -560,14 +570,23 @@ const InterviewRoom = () => {
 
       await room.connect(url, token);
       await room.localParticipant.setMicrophoneEnabled(true);
+      
+      console.log("✅ Successfully connected to LiveKit room");
+      
     } catch (error) {
-      console.error("Connection error:", error);
+      console.error("❌ Connection error:", error);
       setStatus("Error: " + error.message);
       setIsConnecting(false);
       cleanupResources();
       roomRef.current = null;
       isConnectingRef.current = false;
+      toast.error("Failed to connect: " + error.message);
     }
+  };
+
+  const connectToRoom = async () => {
+    // Show confirmation modal first
+    setShowAvatarConfirmation(true);
   };
 
   const disconnectFromRoom = async () => {
@@ -804,6 +823,11 @@ const InterviewRoom = () => {
   return (
     <>
       <Toaster />
+      <AvatarConfirmationModal 
+        isVisible={showAvatarConfirmation}
+        onConfirm={handleAvatarConfirm}
+        onDecline={handleAvatarDecline}
+      />
       <ConnectionLoadingModal isVisible={isConnecting} />
       <div className="h-screen bg-base-100 text-white flex flex-col overflow-hidden">
         <Header
@@ -837,12 +861,13 @@ const InterviewRoom = () => {
 
           {/* Right Panel - Video and Controls */}
           <div className="w-full lg:w-[42%] xl:w-[40%] 2xl:w-[38%] flex flex-col gap-3 md:gap-4 lg:gap-5 overflow-y-auto min-w-0">
-            {/* Avatar Video */}
+            {/* Avatar Video OR Spline Animation */}
             <div className="flex justify-center items-center bg-base-300 rounded-xl shadow-lg overflow-hidden">
               <div className="w-full max-w-full lg:max-w-[450px] xl:max-w-[500px] aspect-[10/7]">
                 <AvatarVideo 
                   videoTrack={videoTrack} 
                   onVideoReady={handleAvatarVideoReady}
+                  isAvatarEnabled={isAvatarEnabled}
                 />
               </div>
             </div>
