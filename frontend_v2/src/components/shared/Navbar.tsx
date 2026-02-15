@@ -1,10 +1,18 @@
 import { Link, NavLink } from "react-router-dom"
 import { Button } from "@/components/ui/button"
-import { Menu } from "lucide-react"
+import { CircleUser, Menu } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { ModeToggle } from "./mode-toggle"
 import { useAuth } from "@/hooks/useAuth"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "../ui/dropdown-menu"
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -54,11 +62,24 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <p>{user.username}</p>
-                <Button size="sm" onClick={logout}>Logout</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline">
+                      <CircleUser />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent className="w-40" align="start">
+                    <DropdownMenuGroup>
+                      <DropdownMenuLabel>{user.username}</DropdownMenuLabel>
+                      <DropdownMenuItem>
+                        Profile
+                      </DropdownMenuItem>
+                      <Button className="w-full" variant={"destructive"} onClick={logout} disabled={loading}>Logout</Button>
+                    </DropdownMenuGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </>
             )
-
           }
           <ModeToggle />
         </div>
