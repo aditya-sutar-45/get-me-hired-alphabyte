@@ -1,6 +1,7 @@
 venv/
 .env
 
+vnev/
 llm/.env
 
 llm/__pycache__
