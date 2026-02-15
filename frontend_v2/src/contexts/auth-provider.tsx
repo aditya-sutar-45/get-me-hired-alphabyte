@@ -8,6 +8,7 @@ type AuthContextType = {
   registerAsUser: (u: UserRegisterPayload) => Promise<void>
   registerAsCompany: (c: CompanyRegisterPayload) => Promise<void>
   login: (l: LoginPayload) => Promise<void>
+  logout: () => Promise<void>
   loading: boolean
   authError: string
 }
@@ -117,9 +118,33 @@ export function AuthProvider({ children }: Props) {
       } else {
         setAuthError("incorrect username / password")
         console.log(data)
+        throw new Error("invalid username / password")
       }
     } catch (err) {
       console.error("ERROR LOGING IN: ", err)
+      if (err instanceof Error) {
+        setAuthError(err.message)
+      } else {
+        setAuthError("Something went wrong")
+      }
+
+      throw err
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const logout = async () => {
+    setAuthError("");
+    setLoading(true);
+    try {
+      await fetch(`${import.meta.env.VITE_BACKEND_BASE_URL}/logout`, {
+        method: "GET",
+        credentials: "include",
+      });
+      setUser(null);
+    } catch (err) {
+      console.error("ERROR LOGING OUT: ", err)
       if (err instanceof Error) {
         setAuthError(err.message)
       } else {
@@ -137,6 +162,7 @@ export function AuthProvider({ children }: Props) {
       registerAsUser,
       registerAsCompany,
       login,
+      logout,
       loading,
       authError
     }}>

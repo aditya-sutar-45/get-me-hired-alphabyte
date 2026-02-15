@@ -4,9 +4,11 @@ import { Menu } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { ModeToggle } from "./mode-toggle"
+import { useAuth } from "@/hooks/useAuth"
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { user, logout, loading } = useAuth();
 
   const navItems = [
     { name: "Home", path: "/" },
@@ -40,9 +42,24 @@ export default function Navbar() {
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-6">
-          <Link to={"/auth/register"}>
-            <Button size="sm">Register</Button>
-          </Link>
+          {user === null ?
+            (
+              <>
+                <Link to={"/auth/login"}>
+                  <Button size="sm">Login</Button>
+                </Link>
+                <Link to={"/auth/register"}>
+                  <Button size="sm">Register</Button>
+                </Link>
+              </>
+            ) : (
+              <>
+                <p>{user.username}</p>
+                <Button size="sm" onClick={logout}>Logout</Button>
+              </>
+            )
+
+          }
           <ModeToggle />
         </div>
 
@@ -77,7 +94,7 @@ export default function Navbar() {
               </NavLink>
             ))}
             <Link to={"/auth/register"}>
-              <Button size="sm">Login</Button>
+              <Button size="sm" disabled={loading}>Login</Button>
             </Link>
           </div>
         </div>
