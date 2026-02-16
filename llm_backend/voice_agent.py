@@ -18,12 +18,28 @@ from livekit.plugins import (
 )
 from llm.livekit_llm import create_workflow
 import asyncio
-
+import aiohttp
+import time
 
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
+
+
+FEEDBACK_API_URL = "http://localhost:8000/feedback"  # change later
+
+async def send_to_feedback_engine(payload):
+    """Send transcript/ai response to feedback engine async"""
+    try:
+        async with aiohttp.ClientSession() as session:
+            await session.post(
+                FEEDBACK_API_URL,
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=3),
+            )
+    except Exception as e:
+        logger.error(f"Feedback engine error: {e}")
 
 
 async def entrypoint(ctx: JobContext):
@@ -37,7 +53,7 @@ async def entrypoint(ctx: JobContext):
     # Parse metadata
     job_metadata = {}
     resume = ""
-    enable_avatar = True  # Default to True
+    enable_avatar = True  
     
     if participant.metadata:
         try:
@@ -136,6 +152,37 @@ async def entrypoint(ctx: JobContext):
         max_tool_steps=3,
     )
 
+
+     # USER SPEECH → STT transcript hook
+    @session.on("user_transcript")
+    def handle_user_transcript(event):
+        text = event.transcript if hasattr(event, "transcript") else ""
+        logger.info(f"🧑 USER: {text}")
+
+        asyncio.create_task(send_to_feedback_engine({
+            "type": "user",
+            "text": text,
+            "timestamp": time.time(),
+            "room": ctx.room.name,
+            "job_role": job_title,
+            "company": company_name
+        }))
+
+    # AI RESPONSE hook (before TTS)
+    @session.on("agent_response")
+    def handle_agent_response(event):
+        text = getattr(event, "text", "")
+        logger.info(f"🤖 AI: {text}")
+
+        asyncio.create_task(send_to_feedback_engine({
+            "type": "ai",
+            "text": text,
+            "timestamp": time.time(),
+            "room": ctx.room.name,
+            "job_role": job_title,
+            "company": company_name
+        }))
+
     # CONDITIONALLY start avatar based on metadata
     avatar_session = None
     
@@ -217,7 +264,7 @@ async def entrypoint(ctx: JobContext):
     )
     
     await session.say(greeting, allow_interruptions=True)
-    logger.info("✅ Initial greeting sent")
+    logger.info("✅ Initial greeting sent") 
 
 
 if __name__ == "__main__":

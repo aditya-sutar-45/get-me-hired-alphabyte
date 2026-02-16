@@ -91,7 +91,7 @@ export default function AvatarVideo({
         }`}
       />
 
-      {/* Status indicator when enabled and ready */}
+      {/* Status indicator when enabled and ready
       {isAvatarEnabled && isReady && (
         <div className="absolute bottom-3 left-3">
           <div className="px-3 py-1.5 rounded-full bg-green-600/90 backdrop-blur-sm text-white text-xs font-medium flex items-center gap-2">
@@ -99,7 +99,7 @@ export default function AvatarVideo({
             <span>Avatar Active</span>
           </div>
         </div>
-      )}
+      )} */}
     </div>
   );
 }
