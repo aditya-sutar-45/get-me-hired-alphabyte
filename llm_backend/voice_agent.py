@@ -153,29 +153,19 @@ async def entrypoint(ctx: JobContext):
     )
 
 
-     # USER SPEECH → STT transcript hook
-    @session.on("user_transcript")
-    def handle_user_transcript(event):
-        text = event.transcript if hasattr(event, "transcript") else ""
-        logger.info(f"🧑 USER: {text}")
+    # USER SPEECH → STT transcript hook - SEND ONLY THIS TO FEEDBACK ENGINE
+    @session.on("user_speech_committed")
+    def handle_user_speech(event):
+        try:
+            text = event.text
+        except:
+            text = ""
 
+        logger.info(f"\n🧑 USER SAID: {text}\n")
+
+        # Send ONLY user's STT transcribed text to feedback engine
         asyncio.create_task(send_to_feedback_engine({
-            "type": "user",
-            "text": text,
-            "timestamp": time.time(),
-            "room": ctx.room.name,
-            "job_role": job_title,
-            "company": company_name
-        }))
-
-    # AI RESPONSE hook (before TTS)
-    @session.on("agent_response")
-    def handle_agent_response(event):
-        text = getattr(event, "text", "")
-        logger.info(f"🤖 AI: {text}")
-
-        asyncio.create_task(send_to_feedback_engine({
-            "type": "ai",
+            "type": "user_stt",
             "text": text,
             "timestamp": time.time(),
             "room": ctx.room.name,
@@ -273,4 +263,4 @@ if __name__ == "__main__":
             entrypoint_fnc=entrypoint,
             num_idle_processes=1,
         )
-    )
+)
