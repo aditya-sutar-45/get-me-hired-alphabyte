@@ -20,6 +20,7 @@ from llm.livekit_llm import create_workflow
 from llm.context_store import context_store
 import asyncio
 import aiohttp
+from collections import deque
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -97,14 +98,104 @@ async def send_user_feedback_to_api(question: str, user_answer: str, room):
         return None
 
 
-# Store for tracking questions and answers
-class AnswerStore:
+# Global conversation tracker
+class ConversationTracker:
     def __init__(self):
         self.current_question = None
-        self.pending_answer = None
-        self.last_processed_pair = None
+        self.user_answer_buffer = ""
+        self.is_collecting_answer = False
+        self.agent_is_responding = False
+        self.conversation_history = deque(maxlen=10)  # Store last 10 exchanges
+        self.last_sent_pair = None
+        
+    def new_question_asked(self, question):
+        """Called when AI asks a new question"""
+        self.current_question = question
+        self.user_answer_buffer = ""
+        self.is_collecting_answer = True
+        self.agent_is_responding = False
+        logger.info(f"📝 Tracking new question: {question[:100]}...")
+        
+    def add_user_speech(self, text):
+        """Called when user speaks"""
+        if self.is_collecting_answer and not self.agent_is_responding:
+            self.user_answer_buffer += " " + text
+            logger.info(f"💬 User speech added: {text}")
+            
+    def agent_started_responding(self):
+        """Called when agent starts to respond to user"""
+        self.agent_is_responding = True
+        logger.info("🤖 Agent started responding...")
+        
+    def agent_finished_responding(self):
+        """Called when agent finishes responding"""
+        self.agent_is_responding = False
+        # Mark that we're ready to collect next answer
+        logger.info("✅ Agent finished responding")
+        return self.get_completed_qa_pair()
+        
+    def get_completed_qa_pair(self):
+        """Get the completed Q&A pair if ready"""
+        if self.current_question and self.user_answer_buffer.strip():
+            qa_pair = {
+                "question": self.current_question,
+                "answer": self.user_answer_buffer.strip()
+            }
+            
+            # Check if this is a new pair
+            current_pair_key = (self.current_question, self.user_answer_buffer.strip())
+            if current_pair_key == self.last_sent_pair:
+                return None  # Already sent this pair
+                
+            self.last_sent_pair = current_pair_key
+            
+            # Reset for next question
+            self.is_collecting_answer = False
+            
+            return qa_pair
+        return None
 
-answer_store = AnswerStore()
+conversation_tracker = ConversationTracker()
+
+
+async def monitor_conversation_and_send_feedback(room):
+    """
+    Monitor the conversation flow and send feedback when a Q&A exchange completes.
+    This runs continuously in the background.
+    """
+    last_agent_state = False
+    
+    while True:
+        try:
+            # Check if agent just finished responding (state change from True to False)
+            current_agent_state = conversation_tracker.agent_is_responding
+            
+            if last_agent_state and not current_agent_state:
+                # Agent just finished responding!
+                qa_pair = conversation_tracker.agent_finished_responding()
+                
+                if qa_pair:
+                    logger.info("\n" + "=" * 60)
+                    logger.info("🎯 COMPLETE Q&A EXCHANGE DETECTED")
+                    logger.info("=" * 60)
+                    logger.info(f"\n❓ Question: {qa_pair['question']}")
+                    logger.info(f"💭 User Answer: {qa_pair['answer']}\n")
+                    
+                    # Send to feedback API
+                    logger.info("📤 Sending to user feedback API...")
+                    await send_user_feedback_to_api(
+                        qa_pair['question'],
+                        qa_pair['answer'],
+                        room
+                    )
+                    logger.info("=" * 60 + "\n")
+            
+            last_agent_state = current_agent_state
+            
+        except Exception as e:
+            logger.error(f"Error in conversation monitor: {e}")
+            
+        await asyncio.sleep(0.2)
 
 
 async def print_context_after_question(room):
@@ -137,8 +228,8 @@ async def print_context_after_question(room):
             ):
                 last_printed_question = normalized_q
                 
-                # Update answer store with current question
-                answer_store.current_question = normalized_q
+                # 🔥 TRACK THIS AS THE CURRENT QUESTION
+                conversation_tracker.new_question_asked(normalized_q)
 
                 logger.info("\n" + "=" * 60)
                 logger.info("🟢 NEW INTERVIEW QUESTION GENERATED")
@@ -159,69 +250,6 @@ async def print_context_after_question(room):
             logger.error(f"Print pair error: {e}")
 
         await asyncio.sleep(0.25)
-
-
-async def handle_user_transcript(text: str, room):
-    """
-    Process user transcript and send to feedback API
-    This should be called whenever we receive a complete user utterance
-    """
-    if not text or not text.strip():
-        return
-        
-    text = text.strip()
-    
-    # Only process if we have a current question
-    if not answer_store.current_question:
-        logger.warning("⚠️  Received user answer but no current question set")
-        return
-    
-    question = answer_store.current_question
-    current_pair = (question, text)
-    
-    # Avoid processing the same answer twice
-    if current_pair == answer_store.last_processed_pair:
-        logger.info("⏭️  Skipping duplicate answer")
-        return
-    
-    logger.info("\n" + "=" * 60)
-    logger.info("💬 USER ANSWER RECEIVED")
-    logger.info("=" * 60)
-    logger.info(f"\n❓ Question: {question}")
-    logger.info(f"💭 User Answer: {text}\n")
-    
-    # Send to feedback API
-    logger.info("📤 Sending to user feedback API...")
-    result = await send_user_feedback_to_api(question, text, room)
-    
-    if result:
-        answer_store.last_processed_pair = current_pair
-        logger.info("✅ Feedback processed successfully")
-    
-    logger.info("=" * 60 + "\n")
-
-
-async def setup_transcript_listener(room):
-    """
-    Listen for user transcripts from the room's data channel or events.
-    This is a placeholder - you'll need to integrate with your actual LiveKit session events.
-    """
-    
-    # Option 1: Listen to room events for user speech
-    @room.on("data_received")
-    def on_data_received(data_packet):
-        try:
-            message = json.loads(data_packet.data.decode('utf-8'))
-            
-            # Check if this is a user transcript message
-            if message.get("type") == "user_transcript":
-                transcript = message.get("text", "")
-                asyncio.create_task(handle_user_transcript(transcript, room))
-                
-        except Exception as e:
-            logger.error(f"Error processing data packet: {e}")
-    
-    logger.info("✅ Transcript listener set up")
 
 
 async def entrypoint(ctx: JobContext):
@@ -334,14 +362,11 @@ async def entrypoint(ctx: JobContext):
         max_tool_steps=3,
     )
     
-    # 🔥 HOOK INTO SESSION EVENTS TO CAPTURE USER SPEECH
-    # This captures the user's complete utterances
+    # 🔥 CAPTURE USER SPEECH
     @session.on("user_speech_committed")
     def on_user_speech(message):
-        """Called when user finishes speaking and transcript is finalized"""
+        """Capture user's speech"""
         try:
-            # Extract text from the message
-            # The exact structure depends on your LiveKit/Deepgram setup
             text = None
             
             if hasattr(message, 'alternatives') and message.alternatives:
@@ -352,12 +377,25 @@ async def entrypoint(ctx: JobContext):
                 text = message
                 
             if text:
-                logger.info(f"🎤 User speech: {text}")
-                # Use asyncio.create_task to run the async function
-                asyncio.create_task(handle_user_transcript(text, ctx.room))
+                logger.info(f"🎤 User speech captured: {text}")
+                conversation_tracker.add_user_speech(text)
                 
         except Exception as e:
-            logger.error(f"Error in user_speech_committed handler: {e}")
+            logger.error(f"Error capturing user speech: {e}")
+    
+    # 🔥 TRACK WHEN AGENT STARTS RESPONDING
+    @session.on("agent_started_speaking")
+    def on_agent_started():
+        """Track when agent starts to respond"""
+        logger.info("🤖 Agent started speaking")
+        conversation_tracker.agent_started_responding()
+    
+    # 🔥 TRACK WHEN AGENT STOPS RESPONDING  
+    @session.on("agent_stopped_speaking")
+    def on_agent_stopped():
+        """Track when agent stops responding - this is when we send feedback"""
+        logger.info("🛑 Agent stopped speaking")
+        # The monitor task will detect this state change and send feedback
 
     # CONDITIONALLY start avatar based on metadata
     avatar_session = None
@@ -402,11 +440,12 @@ async def entrypoint(ctx: JobContext):
 
     # Start monitoring tasks
     asyncio.create_task(print_context_after_question(ctx.room))
-    asyncio.create_task(setup_transcript_listener(ctx.room))
+    asyncio.create_task(monitor_conversation_and_send_feedback(ctx.room))
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
     logger.info(f"   Audio output: {not enable_avatar or avatar_session is None}")
+    logger.info(f"   Feedback monitoring: ACTIVE")
 
     # Initial greeting
     greeting = (
