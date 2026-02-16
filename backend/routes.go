@@ -24,4 +24,6 @@ func setupRoutes(r *chi.Mux, h *handlers.Handler, m *Middleware) {
 	r.Delete("/jobs/{id}", m.middlwareCompanyAuth(h.HandlerDeleteJobByID))
 
 	r.Get("/company/jobs", m.middlwareCompanyAuth(h.HandlerGetJobsByCompany))
+
+	r.Post("/interview", m.middlwareAuth(h.HandlerCreateInterviewSession))
 }

@@ -10,6 +10,7 @@ import ConnectionLoadingModal from "../components/InterviewRoom/ConnectionLoadin
 import toast, { Toaster } from "react-hot-toast";
 import { io } from "socket.io-client";
 import { useAuth } from "../contexts/AuthContext";
+import { createInterviewSession } from "../api/api";
 
 const InterviewRoom = () => {
   const location = useLocation();
@@ -286,6 +287,11 @@ const InterviewRoom = () => {
 
       console.log("📡 Creating room with avatar:", enableAvatar);
 
+      // send req to backend
+      const dbRes = await createInterviewSession(jobData.job_id)
+      const d = await dbRes.json()
+      console.log(d)
+
       const response = await fetch("http://localhost:5000/create-room", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -342,7 +348,7 @@ const InterviewRoom = () => {
 
               setHints(msg.data.hints || []);
               setHintTopic(msg.data.topic || "");
-              
+
               // Show toast notification that hints are available
               toast.success("New hints available! Check the Hints button in the header.");
             }

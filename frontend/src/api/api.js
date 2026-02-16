@@ -60,3 +60,21 @@ const getExtension = (language) => {
   };
   return map[language] || "txt";
 };
+
+export const createInterviewSession = async (jobID) => {
+  const res = await fetch(`${BACKEND_BASE_URL}/interview`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      job_id: jobID
+    }),
+    credentials: "include",
+  });
+
+  if (res.status !== 201) {
+    console.log(res)
+    throw new Error("interview session is not created")
+  }
+
+  return res
+} 

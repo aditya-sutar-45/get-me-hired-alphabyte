@@ -6,16 +6,75 @@ package database
 
 import (
 	"database/sql"
+	"database/sql/driver"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
+
+type InterviewStatus string
+
+const (
+	InterviewStatusOngoing    InterviewStatus = "ongoing"
+	InterviewStatusCompleted  InterviewStatus = "completed"
+	InterviewStatusIncomplete InterviewStatus = "incomplete"
+)
+
+func (e *InterviewStatus) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = InterviewStatus(s)
+	case string:
+		*e = InterviewStatus(s)
+	default:
+		return fmt.Errorf("unsupported scan type for InterviewStatus: %T", src)
+	}
+	return nil
+}
+
+type NullInterviewStatus struct {
+	InterviewStatus InterviewStatus
+	Valid           bool // Valid is true if InterviewStatus is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullInterviewStatus) Scan(value interface{}) error {
+	if value == nil {
+		ns.InterviewStatus, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.InterviewStatus.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullInterviewStatus) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.InterviewStatus), nil
+}
 
 type CompanyProfile struct {
 	UserID             uuid.UUID
 	CompanyName        string
 	CompanyWebsite     string
 	CompanyDescription string
+}
+
+type InterviewSession struct {
+	ID            uuid.UUID
+	Status        InterviewStatus
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	UserID        uuid.UUID
+	JobID         uuid.UUID
+	Transcript    pqtype.NullRawMessage
+	UserFeedbacks pqtype.NullRawMessage
+	HintsUsed     pqtype.NullRawMessage
+	SubmittedCode pqtype.NullRawMessage
 }
 
 type Job struct {

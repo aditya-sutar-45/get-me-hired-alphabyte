@@ -31,17 +31,31 @@ func (m Middleware) middlwareAuth(next authedHandler) http.HandlerFunc {
 		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
 			return []byte(secretKey), nil
 		})
+
 		if err != nil || !token.Valid {
 			handlers.RespondWithErr(w, http.StatusUnauthorized, "invalid or expired token")
 			return
 		}
 
-		claims := token.Claims.(*jwt.RegisteredClaims)
-		userID, err := uuid.Parse(claims.Issuer)
+		// ✅ FIX IS HERE
+		mapClaims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			handlers.RespondWithErr(w, http.StatusUnauthorized, "invalid token claims")
+			return
+		}
+
+		issuer, ok := mapClaims["iss"].(string)
+		if !ok {
+			handlers.RespondWithErr(w, http.StatusUnauthorized, "issuer missing")
+			return
+		}
+
+		userID, err := uuid.Parse(issuer)
 		if err != nil {
 			handlers.RespondWithErr(w, http.StatusUnauthorized, "user id invalid")
 			return
 		}
+
 		u, err := m.DB.GetUserByID(r.Context(), userID)
 		if err != nil {
 			handlers.RespondWithErr(w, http.StatusNotFound, "user not found")

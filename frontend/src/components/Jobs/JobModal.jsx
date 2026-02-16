@@ -29,6 +29,7 @@ function JobModal({ job }) {
     navigate(`/interview/${job.id}`, {
       state: {
         jobData: {
+          job_id: job.id,
           companyName: job.company_name,
           title: job.title,
           description: job.description,
