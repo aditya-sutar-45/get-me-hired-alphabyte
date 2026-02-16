@@ -27,6 +27,25 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
 
 
+async def print_context_after_question():
+    last_seen = None
+
+    while True:
+        try:
+            current = context_store.last_context
+
+            # print only when new question generated
+            if current and current != last_seen:
+                last_seen = current
+                logger.info(f"\n🧠 QUESTION CONTEXT USED BY LLM:\n{current}\n")
+
+        except Exception as e:
+            logger.error(f"Context print error: {e}")
+
+        await asyncio.sleep(0.5)  # check frequently
+
+
+
 async def entrypoint(ctx: JobContext):
     logger.info(f"Starting AI Interview Agent in room: {ctx.room.name}")
 
@@ -203,6 +222,10 @@ async def entrypoint(ctx: JobContext):
             audio_enabled=(not enable_avatar or avatar_session is None),
         ),
     )
+
+
+    asyncio.create_task(print_context_after_question())
+    
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
