@@ -125,19 +125,19 @@ async def send_to_hint_api(question: str, context: str, room):
 #     except Exception as e:
 #         logger.error(f"❌ User Q&A API request failed: {e}")
 #         return None
+
 def capture_user_answer_pairs(session):
     """
-    Capture user answers after each question and print Q&A pair.
-    Uses sync event handler (LiveKit requirement).
+    Capture user answers after each question and print Q&A pair
     """
 
     last_processed_answer = None
 
-    async def process_answer(event):
+    async def process_answer(text: str):
         nonlocal last_processed_answer
 
         try:
-            user_answer = event.text.strip() if event and event.text else None
+            user_answer = text.strip() if text else None
             question = context_store.last_question
 
             if not user_answer or not question:
@@ -159,10 +159,11 @@ def capture_user_answer_pairs(session):
         except Exception as e:
             logger.error(f"Answer capture error: {e}")
 
-    # 🔥 LIVEKIT REQUIRES SYNC HANDLER
-    @session.on("user_speech_final")
-    def on_user_final_transcript(event):
-        asyncio.create_task(process_answer(event))
+    # 🔥 CORRECT EVENT
+    @session.on("final_transcript")
+    def on_final_transcript(text: str):
+        asyncio.create_task(process_answer(text))
+
 
 
 async def print_context_after_question(room):
