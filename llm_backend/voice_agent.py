@@ -204,11 +204,14 @@ async def entrypoint(ctx: JobContext):
         ),
     )
     
-
-    @session.on("agent_speech_committed")
-    def on_ai_speech(msg):
+    # 🧠 Capture every AI question + print context
+    @session.on("response")
+    def on_ai_response(res):
         try:
-            question = msg.text
+            if not res or not res.text:
+                return
+
+            question = res.text.strip()
             ctx_used = context_store.last_context
 
             logger.info("\n" + "="*60)
@@ -218,6 +221,7 @@ async def entrypoint(ctx: JobContext):
 
         except Exception as e:
             logger.error(f"Print error: {e}")
+
 
 
     logger.info(f"✅ AI Interview Agent started successfully")
