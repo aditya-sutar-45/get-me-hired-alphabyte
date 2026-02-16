@@ -11,8 +11,6 @@ def generate_hint(question: str, context: str):
         if not res:
             return None
 
-        print(res)
-
         parsed = json.loads(res)
         return parsed
     except Exception as e:

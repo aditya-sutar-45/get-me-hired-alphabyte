@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-from flask import Flask, json, jsonify, request
+from flask import Flask, jsonify, request
 from engine.generate_hints import generate_hint
 from flask_cors import CORS
 
@@ -22,14 +22,20 @@ def generate_hint_route():
         if not context:
             return jsonify({"error": "Context is required"}), 400
 
-        print("hit api")
-
         # generate hint
-        # hints = generate_hint(question, context)
-        # if not hints:
-        # return jsonify({"error": "Failed to generate hint"}), 500
+        hints = generate_hint(question, context)
+        if not hints:
+            return jsonify({"error": "Failed to generate hint"}), 500
 
-        return jsonify({"done": "hints hints"})
+        response = {
+            "question": question,
+            "topic": hints.get("topic"),
+            "hints": hints.get("hints"),
+        }
+
+        print(response)
+
+        return jsonify(response)
 
     except Exception as e:
         print("ERROR:", e)
