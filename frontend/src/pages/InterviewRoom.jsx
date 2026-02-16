@@ -57,25 +57,25 @@ const InterviewRoom = () => {
     }
   }, [job]);
 
-  const roomID = "room-001";
-  useEffect(() => {
-    const socket = io("http://127.0.0.1:6969");
+  // const roomID = "room-001";
+  // useEffect(() => {
+  //   const socket = io("http://127.0.0.1:6969");
 
-    socket.on("connect", () => {
-      console.log("Connected to server:", socket.id);
-      socket.emit("join_room", { roomId: roomID });
-      console.log(`[+] Joined room: ${roomID}`);
-    });
+  //   socket.on("connect", () => {
+  //     console.log("Connected to server:", socket.id);
+  //     socket.emit("join_room", { roomId: roomID });
+  //     console.log(`[+] Joined room: ${roomID}`);
+  //   });
 
-    socket.on("violation_detected", (data) => {
-      console.log("Violation detected:", data);
-      alert("violation detected please close any restricted software");
-    });
+  //   socket.on("violation_detected", (data) => {
+  //     console.log("Violation detected:", data);
+  //     alert("violation detected please close any restricted software");
+  //   });
 
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+  //   return () => {
+  //     socket.disconnect();
+  //   };
+  // }, []);
 
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -894,6 +894,7 @@ const InterviewRoom = () => {
               isAgentSpeaking={isAgentSpeaking}
               onSendMessage={handleSendMessage}
               messageInputDisabled={!isConnected}
+              apiBaseUrl="http://localhost:6969"
             />
           </div>
 

@@ -67,7 +67,7 @@ const Header = ({
 
               {/* Dropdown */}
               {showHintsDropdown && (
-                <div className="absolute mt-2 w-50 bg-base-100 border border-base-300 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
+                <div className="absolute mt-2 w-5 bg-base-100 border border-base-300 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
                   <div className="p-3 border-b border-base-300">
                     <div className="flex justify-between items-center">
                       <h3 className="font-semibold text-lg">Available Hints</h3>

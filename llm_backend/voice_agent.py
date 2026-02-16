@@ -90,81 +90,7 @@ async def send_to_hint_api(question: str, context: str, room):
         logger.error(f"❌ Hint API request failed: {e}")
         return None
 
-
-# async def send_user_qa_to_api(question: str, answer: str, room):
-#     """Send user's question and answer to the API and forward response to frontend"""
-#     url = "http://localhost:6969/process_user_qa"  # Change this to your desired endpoint
-#     payload = {"question": question, "answer": answer}
-
-#     try:
-#         async with aiohttp.ClientSession() as session:
-#             async with session.post(
-#                 url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
-#             ) as response:
-#                 if response.status == 200:
-#                     result = await response.json()
-#                     logger.info(f"✅ User Q&A API response: {result}")
-
-#                     # 🔥 SEND TO FRONTEND VIA LIVEKIT DATA CHANNEL
-#                     message = {"type": "user_qa_response", "data": result}
-
-#                     await room.local_participant.publish_data(
-#                         json.dumps(message).encode("utf-8"), reliable=True
-#                     )
-
-#                     logger.info("📡 User Q&A response sent to frontend via data channel")
-#                     return result
-
-#                 else:
-#                     logger.error(f"❌ User Q&A API error: {response.status}")
-#                     return None
-
-#     except asyncio.TimeoutError:
-#         logger.error("❌ User Q&A API request timeout")
-#         return None
-#     except Exception as e:
-#         logger.error(f"❌ User Q&A API request failed: {e}")
-#         return None
-
-def capture_user_answer_pairs(session):
-    """
-    Capture user answers after each question and print Q&A pair
-    """
-
-    last_processed_answer = None
-
-    async def process_answer(text: str):
-        nonlocal last_processed_answer
-
-        try:
-            user_answer = text.strip() if text else None
-            question = context_store.last_question
-
-            if not user_answer or not question:
-                return
-
-            # prevent duplicates
-            if user_answer == last_processed_answer:
-                return
-
-            last_processed_answer = user_answer
-
-            logger.info("\n" + "🟣" * 60)
-            logger.info("🎤 USER ANSWER CAPTURED")
-            logger.info("🟣" * 60)
-            logger.info(f"❓ Question: {question.strip()}")
-            logger.info(f"🗣️ Answer: {user_answer}")
-            logger.info("🟣" * 60 + "\n")
-
-        except Exception as e:
-            logger.error(f"Answer capture error: {e}")
-
-    # 🔥 CORRECT EVENT
-    @session.on("final_transcript")
-    def on_final_transcript(text: str):
-        asyncio.create_task(process_answer(text))
-
-
+    
 
 async def print_context_after_question(room):
     last_printed_question = None
@@ -379,8 +305,6 @@ async def entrypoint(ctx: JobContext):
             audio_enabled=(not enable_avatar or avatar_session is None),
         ),
     )
-
-    capture_user_answer_pairs(session)
 
     # Start the context monitoring task
     asyncio.create_task(print_context_after_question(ctx.room))
