@@ -28,22 +28,56 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
 
 
+# async def print_context_after_question():
+#     last_seen = None
+
+#     while True:
+#         try:
+#             current = context_store.last_context
+
+#             # print only when new question generated
+#             if current and current != last_seen:
+#                 last_seen = current
+#                 logger.info(f"\n🧠 QUESTION CONTEXT USED BY LLM:\n{current}\n")
+
+#         except Exception as e:
+#             logger.error(f"Context print error: {e}")
+
+#         await asyncio.sleep(0.5)  # check frequently
+
+
 async def print_context_after_question():
-    last_seen = None
+    last_seen_context = None
+    last_seen_question = None
 
     while True:
         try:
-            current = context_store.last_context
+            current_context = context_store.last_context
+            current_question = context_store.last_question
 
-            # print only when new question generated
-            if current and current != last_seen:
-                last_seen = current
-                logger.info(f"\n🧠 QUESTION CONTEXT USED BY LLM:\n{current}\n")
+            # print only when NEW question generated
+            if current_question and current_question != last_seen_question:
+                last_seen_question = current_question
+                last_seen_context = current_context
+
+                logger.info("\n" + "="*60)
+                logger.info("🟢 NEW INTERVIEW QUESTION GENERATED")
+                logger.info("="*60)
+
+                logger.info(f"\n❓ QUESTION ASKED BY LLM:\n{current_question}\n")
+
+                if current_context:
+                    logger.info(f"🧠 CONTEXT USED BY LLM:\n{current_context}\n")
+                else:
+                    logger.info("🧠 CONTEXT USED BY LLM: None\n")
+
+                logger.info("="*60 + "\n")
 
         except Exception as e:
-            logger.error(f"Context print error: {e}")
+            logger.error(f"Context/Question print error: {e}")
 
-        await asyncio.sleep(0.5)  # check frequently
+        await asyncio.sleep(0.5)
+
 
 
 async def entrypoint(ctx: JobContext):
@@ -223,7 +257,9 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
+    # asyncio.create_task(print_context_after_question())
     asyncio.create_task(print_context_after_question())
+
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
