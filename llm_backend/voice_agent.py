@@ -203,51 +203,22 @@ async def entrypoint(ctx: JobContext):
             audio_enabled=(not enable_avatar or avatar_session is None),
         ),
     )
-
-
-    # 🔁 Watch for new question + context together
-    async def print_question_and_context():
-        last_seen_context = None
-        last_seen_question = None
-
-        while True:
-            try:
-                # get current context
-                context = context_store.last_context
-
-                # get last assistant message (latest AI question)
-                history = session.chat_history.messages if session.chat_history else []
-                last_ai_msg = None
-
-                # find latest assistant message
-                for msg in reversed(history):
-                    if msg.role == "assistant":
-                        last_ai_msg = msg.content
-                        break
-
-                # print only when NEW context detected
-                if context and context != last_seen_context:
-                    last_seen_context = context
-
-                    # avoid duplicate question prints
-                    if last_ai_msg != last_seen_question:
-                        last_seen_question = last_ai_msg
-
-                        logger.info("\n" + "="*60)
-                        logger.info(f"🧠 CONTEXT USED:\n{context}\n")
-                        logger.info(f"🤖 QUESTION ASKED:\n{last_ai_msg}")
-                        logger.info("="*60 + "\n")
-
-            except Exception as e:
-                logger.error(f"Print error: {e}")
-
-            await asyncio.sleep(0.5)
-
-
-# run background task
-    asyncio.create_task(print_question_and_context())
-
     
+
+    @session.on("agent_speech_committed")
+    def on_ai_speech(msg):
+        try:
+            question = msg.text
+            ctx_used = context_store.last_context
+
+            logger.info("\n" + "="*60)
+            logger.info(f"🧠 CONTEXT USED:\n{ctx_used}\n")
+            logger.info(f"🤖 QUESTION ASKED:\n{question}")
+            logger.info("="*60 + "\n")
+
+        except Exception as e:
+            logger.error(f"Print error: {e}")
+
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
@@ -261,8 +232,7 @@ async def entrypoint(ctx: JobContext):
 
     await session.say(greeting, allow_interruptions=True)
     logger.info("✅ Initial greeting sent")
-    await asyncio.sleep(1)
-    logger.info(f"🧠 Last Context: {context_store.last_context}")
+
 
 
 if __name__ == "__main__":
