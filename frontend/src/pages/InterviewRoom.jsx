@@ -344,7 +344,7 @@ const InterviewRoom = () => {
               setHintTopic(msg.data.topic || "");
               
               // Show toast notification that hints are available
-              toast.success("💡 New hints available! Check the Hints button in the header.");
+              toast.success("New hints available! Check the Hints button in the header.");
             }
           } catch (err) {
             console.error("Error parsing data channel message:", err);
