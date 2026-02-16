@@ -29,24 +29,60 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
 
 
-async def send_to_hint_api(question: str, context: str):
-    """Send question and context to the hint generation API"""
+# async def send_to_hint_api(question: str, context: str):
+#     """Send question and context to the hint generation API"""
+#     url = "http://localhost:6969/generate_hint"
+#     payload = {
+#         "question": question,
+#         "context": context
+#     }
+
+#     try:
+#         async with aiohttp.ClientSession() as session:
+#             async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as response:
+#                 if response.status == 200:
+#                     result = await response.json()
+#                     logger.info(f"✅ Hint API response: {result}")
+#                     return result
+#                 else:
+#                     logger.error(f"❌ Hint API error: {response.status}")
+#                     return None
+#     except asyncio.TimeoutError:
+#         logger.error("❌ Hint API request timeout")
+#         return None
+#     except Exception as e:
+#         logger.error(f"❌ Hint API request failed: {e}")
+#         return None
+
+
+async def send_to_hint_api(question: str, context: str, room):
+    """Send question and context to the hint generation API and forward hints to frontend"""
     url = "http://localhost:6969/generate_hint"
-    payload = {
-        "question": question,
-        "context": context
-    }
-    
+    payload = {"question": question, "context": context}
+
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as response:
+            async with session.post(
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
                 if response.status == 200:
                     result = await response.json()
                     logger.info(f"✅ Hint API response: {result}")
+
+                    # 🔥 SEND TO FRONTEND VIA LIVEKIT DATA CHANNEL
+                    message = {"type": "hint_response", "data": result}
+
+                    await room.local_participant.publish_data(
+                        json.dumps(message).encode("utf-8"), reliable=True
+                    )
+
+                    logger.info("📡 Hints sent to frontend via data channel")
                     return result
+
                 else:
                     logger.error(f"❌ Hint API error: {response.status}")
                     return None
+
     except asyncio.TimeoutError:
         logger.error("❌ Hint API request timeout")
         return None
@@ -55,7 +91,7 @@ async def send_to_hint_api(question: str, context: str):
         return None
 
 
-async def print_context_after_question():
+async def print_context_after_question(room):
     last_printed_question = None
     last_sent_pair = None  # Track sent question-context pairs
 
@@ -101,7 +137,7 @@ async def print_context_after_question():
                 # Send to API only if this exact pair hasn't been sent before
                 if current_pair != last_sent_pair:
                     logger.info("📤 Sending to hint generation API...")
-                    await send_to_hint_api(normalized_q, normalized_c)
+                    await send_to_hint_api(normalized_q, normalized_c, room)
                     last_sent_pair = current_pair
                 else:
                     logger.info("⏭️  Skipping API call (duplicate pair)")
@@ -270,12 +306,12 @@ async def entrypoint(ctx: JobContext):
     )
 
     # Start the context monitoring task
-    asyncio.create_task(print_context_after_question())
+    asyncio.create_task(print_context_after_question(ctx.room))
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
     logger.info(f"   Audio output: {not enable_avatar or avatar_session is None}")
-    
+
     # Initial greeting
     greeting = (
         f"Welcome to your interview for the {job_title} role at {company_name}. "
