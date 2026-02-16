@@ -27,25 +27,6 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
 
 
-async def print_context_after_question():
-    last_seen = None
-
-    while True:
-        try:
-            current = context_store.last_context
-
-            # print only when new question generated
-            if current and current != last_seen:
-                last_seen = current
-                logger.info(f"\n🧠 QUESTION CONTEXT USED BY LLM:\n{current}\n")
-
-        except Exception as e:
-            logger.error(f"Context print error: {e}")
-
-        await asyncio.sleep(0.5)  # check frequently
-
-
-
 async def entrypoint(ctx: JobContext):
     logger.info(f"Starting AI Interview Agent in room: {ctx.room.name}")
 
@@ -224,7 +205,48 @@ async def entrypoint(ctx: JobContext):
     )
 
 
-    asyncio.create_task(print_context_after_question())
+    # 🔁 Watch for new question + context together
+    async def print_question_and_context():
+        last_seen_context = None
+        last_seen_question = None
+
+        while True:
+            try:
+                # get current context
+                context = context_store.last_context
+
+                # get last assistant message (latest AI question)
+                history = session.chat_history.messages if session.chat_history else []
+                last_ai_msg = None
+
+                # find latest assistant message
+                for msg in reversed(history):
+                    if msg.role == "assistant":
+                        last_ai_msg = msg.content
+                        break
+
+                # print only when NEW context detected
+                if context and context != last_seen_context:
+                    last_seen_context = context
+
+                    # avoid duplicate question prints
+                    if last_ai_msg != last_seen_question:
+                        last_seen_question = last_ai_msg
+
+                        logger.info("\n" + "="*60)
+                        logger.info(f"🧠 CONTEXT USED:\n{context}\n")
+                        logger.info(f"🤖 QUESTION ASKED:\n{last_ai_msg}")
+                        logger.info("="*60 + "\n")
+
+            except Exception as e:
+                logger.error(f"Print error: {e}")
+
+            await asyncio.sleep(0.5)
+
+
+# run background task
+    asyncio.create_task(print_question_and_context())
+
     
 
     logger.info(f"✅ AI Interview Agent started successfully")
