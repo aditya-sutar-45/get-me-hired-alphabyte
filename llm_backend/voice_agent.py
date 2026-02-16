@@ -125,28 +125,25 @@ async def send_to_hint_api(question: str, context: str, room):
 #     except Exception as e:
 #         logger.error(f"❌ User Q&A API request failed: {e}")
 #         return None
-
-async def capture_user_answer_pairs(session):
+def capture_user_answer_pairs(session):
     """
-    Captures user's spoken answers and pairs them with the last asked question.
-    Prints Q&A pair to console every time user answers.
+    Capture user answers after each question and print Q&A pair.
+    Uses sync event handler (LiveKit requirement).
     """
 
     last_processed_answer = None
 
-    @session.on("user_speech_final")
-    async def on_user_final_transcript(event):
+    async def process_answer(event):
         nonlocal last_processed_answer
 
         try:
             user_answer = event.text.strip() if event and event.text else None
             question = context_store.last_question
 
-            # ensure both exist
             if not user_answer or not question:
                 return
 
-            # avoid duplicate prints
+            # prevent duplicates
             if user_answer == last_processed_answer:
                 return
 
@@ -160,9 +157,13 @@ async def capture_user_answer_pairs(session):
             logger.info("🟣" * 60 + "\n")
 
         except Exception as e:
-            logger.error(f"Error capturing user answer: {e}")
+            logger.error(f"Answer capture error: {e}")
 
-    
+    # 🔥 LIVEKIT REQUIRES SYNC HANDLER
+    @session.on("user_speech_final")
+    def on_user_final_transcript(event):
+        asyncio.create_task(process_answer(event))
+
 
 async def print_context_after_question(room):
     last_printed_question = None
@@ -378,7 +379,7 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
-    await capture_user_answer_pairs(session)
+    capture_user_answer_pairs(session)
 
     # Start the context monitoring task
     asyncio.create_task(print_context_after_question(ctx.room))
