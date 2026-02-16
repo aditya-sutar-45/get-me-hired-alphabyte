@@ -91,6 +91,122 @@ async def send_to_hint_api(question: str, context: str, room):
         return None
 
 
+async def send_user_qa_to_api(question: str, answer: str, room):
+    """Send user's question and answer to the API and forward response to frontend"""
+    url = "http://localhost:6969/process_user_qa"  # Change this to your desired endpoint
+    payload = {"question": question, "answer": answer}
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    logger.info(f"✅ User Q&A API response: {result}")
+
+                    # 🔥 SEND TO FRONTEND VIA LIVEKIT DATA CHANNEL
+                    message = {"type": "user_qa_response", "data": result}
+
+                    await room.local_participant.publish_data(
+                        json.dumps(message).encode("utf-8"), reliable=True
+                    )
+
+                    logger.info("📡 User Q&A response sent to frontend via data channel")
+                    return result
+
+                else:
+                    logger.error(f"❌ User Q&A API error: {response.status}")
+                    return None
+
+    except asyncio.TimeoutError:
+        logger.error("❌ User Q&A API request timeout")
+        return None
+    except Exception as e:
+        logger.error(f"❌ User Q&A API request failed: {e}")
+        return None
+    
+
+async def monitor_user_responses(session: AgentSession, room):
+    """Monitor user responses and log complete Q&A pairs"""
+    last_logged_qa = None
+    current_question = None
+    user_response_buffer = []
+    last_user_speech_time = None
+    RESPONSE_COMPLETE_DELAY = 3.0  # Wait 3 seconds after last speech to consider answer complete
+    
+    async def on_user_speech(text: str):
+        nonlocal user_response_buffer, last_user_speech_time
+        
+        if text and text.strip():
+            user_response_buffer.append(text.strip())
+            last_user_speech_time = asyncio.get_event_loop().time()
+            logger.debug(f"📝 User spoke: {text.strip()}")
+    
+    # Subscribe to user speech events (you'll need to hook this into your STT)
+    # This is a placeholder - actual implementation depends on your LiveKit setup
+    
+    while True:
+        try:
+            question = context_store.last_question
+            
+            # Check if we have a new question
+            if question and question.strip() and question.strip() != current_question:
+                # If we had a previous question with an answer, log it
+                if current_question and user_response_buffer:
+                    complete_answer = " ".join(user_response_buffer)
+                    qa_pair = (current_question, complete_answer)
+                    
+                    if qa_pair != last_logged_qa and complete_answer:
+                        logger.info("\n" + "=" * 60)
+                        logger.info("💬 USER Q&A PAIR COMPLETED")
+                        logger.info("=" * 60)
+                        logger.info(f"\n❓ QUESTION:\n{current_question}\n")
+                        logger.info(f"💡 USER ANSWER:\n{complete_answer}\n")
+                        
+                        # Send to API
+                        logger.info("📤 Sending Q&A pair to API...")
+                        await send_user_qa_to_api(current_question, complete_answer, room)
+                        
+                        logger.info("=" * 60 + "\n")
+                        last_logged_qa = qa_pair
+                
+                # Start tracking new question
+                current_question = question.strip()
+                user_response_buffer = []
+                last_user_speech_time = None
+            
+            # Check if user has finished responding (no speech for RESPONSE_COMPLETE_DELAY seconds)
+            if (last_user_speech_time and 
+                user_response_buffer and 
+                current_question and
+                (asyncio.get_event_loop().time() - last_user_speech_time) >= RESPONSE_COMPLETE_DELAY):
+                
+                complete_answer = " ".join(user_response_buffer)
+                qa_pair = (current_question, complete_answer)
+                
+                if qa_pair != last_logged_qa:
+                    logger.info("\n" + "=" * 60)
+                    logger.info("💬 USER Q&A PAIR COMPLETED (TIMEOUT)")
+                    logger.info("=" * 60)
+                    logger.info(f"\n❓ QUESTION:\n{current_question}\n")
+                    logger.info(f"💡 USER ANSWER:\n{complete_answer}\n")
+                    
+                    # Send to API
+                    logger.info("📤 Sending Q&A pair to API...")
+                    await send_user_qa_to_api(current_question, complete_answer, room)
+                    
+                    logger.info("=" * 60 + "\n")
+                    last_logged_qa = qa_pair
+                    user_response_buffer = []
+                    last_user_speech_time = None
+            
+            await asyncio.sleep(0.5)
+            
+        except Exception as e:
+            logger.error(f"User Q&A monitoring error: {e}")
+            await asyncio.sleep(0.5)
+
 async def print_context_after_question(room):
     last_printed_question = None
     last_sent_pair = None  # Track sent question-context pairs
@@ -307,6 +423,10 @@ async def entrypoint(ctx: JobContext):
 
     # Start the context monitoring task
     asyncio.create_task(print_context_after_question(ctx.room))
+    asyncio.create_task(print_context_after_question(ctx.room))
+
+# Start the user Q&A monitoring task
+    asyncio.create_task(monitor_user_responses(session, ctx.room))
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
