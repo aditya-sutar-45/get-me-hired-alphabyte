@@ -18,28 +18,12 @@ from livekit.plugins import (
 )
 from llm.livekit_llm import create_workflow
 import asyncio
-import aiohttp
-import time
+
 
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
-
-
-FEEDBACK_API_URL = "http://localhost:8000/feedback"  # change later
-
-async def send_to_feedback_engine(payload):
-    """Send transcript/ai response to feedback engine async"""
-    try:
-        async with aiohttp.ClientSession() as session:
-            await session.post(
-                FEEDBACK_API_URL,
-                json=payload,
-                timeout=aiohttp.ClientTimeout(total=3),
-            )
-    except Exception as e:
-        logger.error(f"Feedback engine error: {e}")
 
 
 async def entrypoint(ctx: JobContext):
@@ -53,7 +37,7 @@ async def entrypoint(ctx: JobContext):
     # Parse metadata
     job_metadata = {}
     resume = ""
-    enable_avatar = True  
+    enable_avatar = True  # Default to True
     
     if participant.metadata:
         try:
@@ -152,27 +136,6 @@ async def entrypoint(ctx: JobContext):
         max_tool_steps=3,
     )
 
-
-    # USER SPEECH → STT transcript hook - SEND ONLY THIS TO FEEDBACK ENGINE
-    @session.on("user_speech_committed")
-    def handle_user_speech(event):
-        try:
-            text = event.text
-        except:
-            text = ""
-
-        logger.info(f"\n🧑 USER SAID: {text}\n")
-
-        # Send ONLY user's STT transcribed text to feedback engine
-        asyncio.create_task(send_to_feedback_engine({
-            "type": "user_stt",
-            "text": text,
-            "timestamp": time.time(),
-            "room": ctx.room.name,
-            "job_role": job_title,
-            "company": company_name
-        }))
-
     # CONDITIONALLY start avatar based on metadata
     avatar_session = None
     
@@ -254,7 +217,7 @@ async def entrypoint(ctx: JobContext):
     )
     
     await session.say(greeting, allow_interruptions=True)
-    logger.info("✅ Initial greeting sent") 
+    logger.info("✅ Initial greeting sent")
 
 
 if __name__ == "__main__":
@@ -263,4 +226,4 @@ if __name__ == "__main__":
             entrypoint_fnc=entrypoint,
             num_idle_processes=1,
         )
-)
+    )
