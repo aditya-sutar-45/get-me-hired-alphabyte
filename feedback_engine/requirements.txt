@@ -2,3 +2,5 @@ google-genai
 python-dotenv
 flask
 flask-cors
+ollama
+pinecone
