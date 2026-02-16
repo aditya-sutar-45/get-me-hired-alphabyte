@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/TheSushantKumbhar/get_me_hired/backend/internal/database"
@@ -39,7 +40,7 @@ func HandlerRegisterUser(w http.ResponseWriter, r *http.Request, h Handler) {
 		return
 	}
 
-	tempPath := fmt.Sprintf("./store/user/resume/resume_%s", username)
+	tempPath := fmt.Sprintf("../store/user/resume/resume_%s.pdf", username)
 	dst, err := os.Create(tempPath)
 	if err != nil {
 		RespondWithErr(w, http.StatusInternalServerError, "something went wrong creating the path!")
@@ -57,12 +58,13 @@ func HandlerRegisterUser(w http.ResponseWriter, r *http.Request, h Handler) {
 		return
 	}
 
-	storePath := os.Getenv("LOCAL_STORE_PATH")
-	if storePath == "" {
-		RespondWithErr(w, http.StatusInternalServerError, "store path is empty")
+	resumeURL, err := filepath.Abs(fmt.Sprintf("../store/user/resume/resume_%s", username))
+	if err != nil {
+		fmt.Printf("error getting absolute path: %v", err)
+		RespondWithErr(w, http.StatusInternalServerError, "failed to get absolute path: ")
 		return
 	}
-	resumeURL := fmt.Sprintf("%s/user/resume/resume_%s", storePath, username)
+
 	parsedResume, err := parseResume(resumeURL)
 	if err != nil {
 		log.Println("error parsing resume: ", err)
