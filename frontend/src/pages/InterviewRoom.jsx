@@ -46,6 +46,9 @@ const InterviewRoom = () => {
   const [loadingAnalysis, setLoadingAnalysis] = useState(false);
   const [analysis, setAnalysis] = useState("");
 
+  const [hints, setHints] = useState([]);
+  const [hintTopic, setHintTopic] = useState("");
+
   const { user } = useAuth();
 
   useEffect(() => {
@@ -323,9 +326,36 @@ const InterviewRoom = () => {
         isConnectingRef.current = false;
 
         console.log("=== Room Connected ===");
-        
+
+        // =============================================
+        // 🧠 LISTEN FOR HINTS FROM LIVEKIT AGENT
+        // =============================================
+        room.on("dataReceived", (payload, participant) => {
+          try {
+            const decoded = new TextDecoder().decode(payload);
+            const msg = JSON.parse(decoded);
+
+            console.log("📩 Data received from agent:", msg);
+
+            if (msg.type === "hint_response") {
+              console.log("💡 HINT RECEIVED:", msg.data);
+
+              setHints(msg.data.hints || []);
+              setHintTopic(msg.data.topic || "");
+              
+              // Show toast notification that hints are available
+              toast.success("💡 New hints available! Check the Hints button in the header.");
+            }
+          } catch (err) {
+            console.error("Error parsing data channel message:", err);
+          }
+        });
+
         // ✅ FIXED: Check if remoteParticipants exists and is iterable
-        if (room.remoteParticipants && typeof room.remoteParticipants.forEach === 'function') {
+        if (
+          room.remoteParticipants &&
+          typeof room.remoteParticipants.forEach === "function"
+        ) {
           console.log("All participants in room:");
           room.remoteParticipants.forEach((participant) => {
             console.log(
@@ -342,9 +372,15 @@ const InterviewRoom = () => {
         }
 
         // ✅ FIXED: Check for existing avatar video tracks with null checks
-        if (room.remoteParticipants && typeof room.remoteParticipants.forEach === 'function') {
+        if (
+          room.remoteParticipants &&
+          typeof room.remoteParticipants.forEach === "function"
+        ) {
           room.remoteParticipants.forEach((participant) => {
-            if (participant.videoTracks && typeof participant.videoTracks.forEach === 'function') {
+            if (
+              participant.videoTracks &&
+              typeof participant.videoTracks.forEach === "function"
+            ) {
               participant.videoTracks.forEach((publication) => {
                 if (publication.isSubscribed && publication.videoTrack) {
                   const identity = participant.identity.toLowerCase();
@@ -470,8 +506,9 @@ const InterviewRoom = () => {
             ) {
               console.log("Setting up audio analysis for agent");
               try {
-                const audioContext = new (window.AudioContext ||
-                  window.webkitAudioContext)();
+                const audioContext = new (
+                  window.AudioContext || window.webkitAudioContext
+                )();
                 audioContextsRef.current.push(audioContext);
 
                 const source = audioContext.createMediaStreamSource(
@@ -570,9 +607,8 @@ const InterviewRoom = () => {
 
       await room.connect(url, token);
       await room.localParticipant.setMicrophoneEnabled(true);
-      
+
       console.log("✅ Successfully connected to LiveKit room");
-      
     } catch (error) {
       console.error("❌ Connection error:", error);
       setStatus("Error: " + error.message);
@@ -779,18 +815,18 @@ const InterviewRoom = () => {
         {
           duration: 2000,
           style: {
-            background: '#ef4444',
-            color: '#fff',
-            fontSize: '16px',
-            fontWeight: '600',
-            padding: '16px',
-            maxWidth: '500px',
+            background: "#ef4444",
+            color: "#fff",
+            fontSize: "16px",
+            fontWeight: "600",
+            padding: "16px",
+            maxWidth: "500px",
           },
-        }
+        },
       );
 
       violationTimeoutRef.current = setTimeout(() => {
-        toast.error('Interview terminated due to violation.');
+        toast.error("Interview terminated due to violation.");
         disconnectFromRoom();
       }, 2000);
     }
@@ -823,7 +859,7 @@ const InterviewRoom = () => {
   return (
     <>
       <Toaster />
-      <AvatarConfirmationModal 
+      <AvatarConfirmationModal
         isVisible={showAvatarConfirmation}
         onConfirm={handleAvatarConfirm}
         onDecline={handleAvatarDecline}
@@ -846,6 +882,8 @@ const InterviewRoom = () => {
           setLanguage={setLanguage}
           analysis={analysis}
           loadingAnalysis={loadingAnalysis}
+          hints={hints}
+          hintTopic={hintTopic}
         />
 
         <div className="flex-1 flex flex-col lg:flex-row gap-3 md:gap-4 lg:gap-5 xl:gap-6 p-3 md:p-4 lg:p-5 xl:p-6 overflow-hidden">
@@ -864,8 +902,8 @@ const InterviewRoom = () => {
             {/* Avatar Video OR Spline Animation */}
             <div className="flex justify-center items-center bg-base-300 rounded-xl shadow-lg overflow-hidden">
               <div className="w-full max-w-full lg:max-w-[450px] xl:max-w-[500px] aspect-[10/7]">
-                <AvatarVideo 
-                  videoTrack={videoTrack} 
+                <AvatarVideo
+                  videoTrack={videoTrack}
                   onVideoReady={handleAvatarVideoReady}
                   isAvatarEnabled={isAvatarEnabled}
                 />
@@ -873,9 +911,7 @@ const InterviewRoom = () => {
             </div>
 
             {/* User Video Panel */}
-            <VideoPanel
-              videoRef={videoRef}
-            />
+            <VideoPanel videoRef={videoRef} />
 
             {/* Control Buttons */}
             <ControlButtons

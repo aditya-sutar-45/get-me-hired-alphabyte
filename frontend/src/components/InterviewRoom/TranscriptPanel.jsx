@@ -41,8 +41,9 @@ const useStreamingText = (text, isStreaming = false, speed = 20) => {
 
 // Function to detect and parse code blocks from text
 const parseMessageContent = (text) => {
-  // Updated regex to handle both ``````
-  const codeBlockRegex = /``````/g;
+  // Regex to match code blocks with optional language identifier
+  // Matches: ```language\ncode\n``` or ```\ncode\n```
+  const codeBlockRegex = /```(\w+)?\n([\s\S]*?)```/g;
   const parts = [];
   let lastIndex = 0;
   let match;
@@ -59,7 +60,7 @@ const parseMessageContent = (text) => {
     // Add code block (with or without language identifier)
     parts.push({
       type: "code",
-      language: match[1] || "python", // Default to python if no language specified
+      language: match[1] || "javascript", // Default to javascript if no language specified
       content: match[2].trim(),
     });
 
@@ -75,6 +76,94 @@ const parseMessageContent = (text) => {
   }
 
   return parts.length > 0 ? parts : [{ type: "text", content: text }];
+};
+
+// VS Code-like code block component
+const CodeBlock = ({ language, content }) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  return (
+    <div className="my-3 rounded-lg overflow-hidden border border-gray-700 bg-[#1e1e1e]">
+      {/* VS Code-like header */}
+      <div className="flex items-center justify-between px-4 py-2 bg-[#252526] border-b border-gray-700">
+        <div className="flex items-center gap-2">
+          
+          <span className="text-xs text-gray-400 ml-2 font-mono">
+            {language || "code"}
+          </span>
+        </div>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1.5 px-2 py-1 text-xs text-gray-300 hover:text-white hover:bg-gray-700 rounded transition-colors"
+        >
+          {copied ? (
+            <>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+              <span>Copied!</span>
+            </>
+          ) : (
+            <>
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              <span>Copy</span>
+            </>
+          )}
+        </button>
+      </div>
+      
+      {/* Code content */}
+      <div className="relative">
+        <SyntaxHighlighter
+          language={language || "javascript"}
+          style={vscDarkPlus}
+          customStyle={{
+            margin: 0,
+            borderRadius: 0,
+            fontSize: "0.875rem",
+            padding: "1rem",
+            background: "#1e1e1e",
+          }}
+          showLineNumbers={true}
+          lineNumberStyle={{
+            minWidth: "3em",
+            paddingRight: "1em",
+            color: "#858585",
+            userSelect: "none",
+          }}
+        >
+          {content}
+        </SyntaxHighlighter>
+      </div>
+    </div>
+  );
 };
 
 // Message component with streaming effect and code highlighting
@@ -111,21 +200,11 @@ const MessageBubble = ({ msg, isLatestStreaming = false }) => {
           {contentParts.map((part, idx) => {
             if (part.type === "code") {
               return (
-                <div key={idx} className="my-2 rounded-lg overflow-hidden">
-                  <SyntaxHighlighter
-                    language={part.language}
-                    style={vscDarkPlus}
-                    customStyle={{
-                      margin: 0,
-                      borderRadius: "0.5rem",
-                      fontSize: "0.875rem",
-                      padding: "1rem",
-                    }}
-                    showLineNumbers={true}
-                  >
-                    {part.content}
-                  </SyntaxHighlighter>
-                </div>
+                <CodeBlock
+                  key={idx}
+                  language={part.language}
+                  content={part.content}
+                />
               );
             }
             return (
