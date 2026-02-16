@@ -23,4 +23,4 @@ def similarity_search(query: str, top_k: int = 2, namespace: str | None = None):
         vector=query_embedding, top_k=top_k, include_metadata=True, namespace=namespace
     )
 
-    return results["matches"]
+    return "\n\n".join(match["metadata"]["text"] for match in results.matches)
