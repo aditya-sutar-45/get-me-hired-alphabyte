@@ -17,9 +17,10 @@ from livekit.plugins import (
     bey,
 )
 from llm.livekit_llm import create_workflow
+
+# context_store.last_context will have the context of the last generated question
+from llm.context_store import context_store
 import asyncio
-
-
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
@@ -38,14 +39,14 @@ async def entrypoint(ctx: JobContext):
     job_metadata = {}
     resume = ""
     enable_avatar = True  # Default to True
-    
+
     if participant.metadata:
         try:
             metadata = json.loads(participant.metadata)
             job_metadata = metadata.get("jobData", {})
             resume = metadata.get("resumeData", "")
             enable_avatar = metadata.get("enableAvatar", True)  # Get from metadata
-            
+
             logger.info(f"✅ Loaded metadata successfully")
             logger.info(f"   Enable Avatar: {enable_avatar}")
             logger.info(f"   Job: {job_metadata.get('title', 'Unknown')}")
@@ -138,7 +139,7 @@ async def entrypoint(ctx: JobContext):
 
     # CONDITIONALLY start avatar based on metadata
     avatar_session = None
-    
+
     if enable_avatar:
         try:
             bey_api_key = os.getenv("BEY_API_KEY")
@@ -151,13 +152,12 @@ async def entrypoint(ctx: JobContext):
             avatar_session = bey.AvatarSession(
                 api_key=bey_api_key,
                 avatar_id=bey_avatar_id,
-                avatar_participant_name="AI-Interviewer-Avatar", 
+                avatar_participant_name="AI-Interviewer-Avatar",
             )
 
             # Start the avatar first
             await avatar_session.start(session, room=ctx.room)
             logger.info("✅ Beyond Presence avatar started and joined the room")
-
 
             # try:
             #     logger.info("⏳ Starting avatar with 25s timeout...")
@@ -181,7 +181,6 @@ async def entrypoint(ctx: JobContext):
             #     avatar_session = None
             #     enable_avatar = False
 
-            
         except Exception as e:
             logger.error(f"❌ Failed to start avatar: {e}")
             logger.error(f"   Continuing without avatar...")
@@ -204,7 +203,7 @@ async def entrypoint(ctx: JobContext):
             audio_enabled=(not enable_avatar or avatar_session is None),
         ),
     )
-    
+
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
     logger.info(f"   Audio output: {not enable_avatar or avatar_session is None}")
@@ -215,7 +214,7 @@ async def entrypoint(ctx: JobContext):
         f"I've gone through your resume and noticed your background in {', '.join(languages[:2])}. "
         f"Let's start with a quick introduction — could you tell me a bit about yourself and your professional journey?"
     )
-    
+
     await session.say(greeting, allow_interruptions=True)
     logger.info("✅ Initial greeting sent")
 
@@ -227,3 +226,4 @@ if __name__ == "__main__":
             num_idle_processes=1,
         )
     )
+

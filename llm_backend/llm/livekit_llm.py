@@ -8,6 +8,7 @@ from pinecone import Pinecone
 from langgraph.graph import START, StateGraph
 from langgraph.graph.message import add_messages
 from langchain_core.messages import BaseMessage, AIMessage, HumanMessage, SystemMessage
+from llm.context_store import context_store
 from llm.prompts import interview_prompt
 
 load_dotenv()
@@ -154,6 +155,8 @@ Only produce the interviewer’s next question.
 Never prefix responses with your name.
 """
         )
+
+        context_store.last_context = docs_content
 
         return generate(state=state, system_message=system_message)
 
