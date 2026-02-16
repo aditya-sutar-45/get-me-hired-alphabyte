@@ -22,43 +22,42 @@ from llm.livekit_llm import create_workflow
 # context_store.last_question will have the last question for which the context was used for
 from llm.context_store import context_store
 import asyncio
+import aiohttp
 
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
 
-# async def print_context_after_question():
-#     last_printed_question = None
 
-#     while True:
-#         try:
-#             question = context_store.last_question
-#             context = context_store.last_context
-
-#             # Only print when:
-#             # 1. question exists
-#             # 2. context exists
-#             # 3. new question (not already printed)
-#             if question and context and question != last_printed_question:
-#                 last_printed_question = question
-
-#                 logger.info("\n" + "="*60)
-#                 logger.info("🟢 NEW INTERVIEW QUESTION GENERATED")
-#                 logger.info("="*60)
-
-#                 logger.info(f"\n❓ QUESTION:\n{question}\n")
-#                 logger.info(f"🧠 CONTEXT USED:\n{context}\n")
-
-#                 logger.info("="*60 + "\n")
-
-#         except Exception as e:
-#             logger.error(f"Print pair error: {e}")
-
-#         await asyncio.sleep(0.3)
+async def send_to_hint_api(question: str, context: str):
+    """Send question and context to the hint generation API"""
+    url = "http://localhost:6969/generate_hint"
+    payload = {
+        "question": question,
+        "context": context
+    }
+    
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    logger.info(f"✅ Hint API response: {result}")
+                    return result
+                else:
+                    logger.error(f"❌ Hint API error: {response.status}")
+                    return None
+    except asyncio.TimeoutError:
+        logger.error("❌ Hint API request timeout")
+        return None
+    except Exception as e:
+        logger.error(f"❌ Hint API request failed: {e}")
+        return None
 
 
 async def print_context_after_question():
     last_printed_question = None
+    last_sent_pair = None  # Track sent question-context pairs
 
     while True:
         try:
@@ -72,6 +71,10 @@ async def print_context_after_question():
 
             # normalize question (avoid whitespace dupes)
             normalized_q = question.strip()
+            normalized_c = context.strip()
+
+            # Create unique identifier for this pair
+            current_pair = (normalized_q, normalized_c)
 
             # if already printed → skip
             if normalized_q == last_printed_question:
@@ -93,7 +96,15 @@ async def print_context_after_question():
                 logger.info("=" * 60)
 
                 logger.info(f"\n❓ QUESTION:\n{normalized_q}\n")
-                logger.info(f"🧠 CONTEXT USED:\n{context}\n")
+                logger.info(f"🧠 CONTEXT USED:\n{normalized_c}\n")
+
+                # Send to API only if this exact pair hasn't been sent before
+                if current_pair != last_sent_pair:
+                    logger.info("📤 Sending to hint generation API...")
+                    await send_to_hint_api(normalized_q, normalized_c)
+                    last_sent_pair = current_pair
+                else:
+                    logger.info("⏭️  Skipping API call (duplicate pair)")
 
                 logger.info("=" * 60 + "\n")
 
@@ -235,28 +246,6 @@ async def entrypoint(ctx: JobContext):
             await avatar_session.start(session, room=ctx.room)
             logger.info("✅ Beyond Presence avatar started and joined the room")
 
-            # try:
-            #     logger.info("⏳ Starting avatar with 25s timeout...")
-
-            #     await asyncio.wait_for(
-            #         avatar_session.start(session, room=ctx.room),
-            #         timeout=5   # seconds
-            #     )
-
-            #     logger.info("✅ Beyond Presence avatar started and joined the room")
-
-            # except asyncio.TimeoutError:
-            #     logger.error("❌ Avatar start TIMEOUT (25s exceeded)")
-            #     logger.error("   Continuing without avatar...")
-            #     avatar_session = None
-            #     enable_avatar = False
-
-            # except Exception as e:
-            #     logger.error(f"❌ Failed to start avatar: {e}")
-            #     logger.error("   Continuing without avatar...")
-            #     avatar_session = None
-            #     enable_avatar = False
-
         except Exception as e:
             logger.error(f"❌ Failed to start avatar: {e}")
             logger.error(f"   Continuing without avatar...")
@@ -280,13 +269,13 @@ async def entrypoint(ctx: JobContext):
         ),
     )
 
-    # asyncio.create_task(print_context_after_question())
+    # Start the context monitoring task
     asyncio.create_task(print_context_after_question())
-
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
     logger.info(f"   Audio output: {not enable_avatar or avatar_session is None}")
+    
     # Initial greeting
     greeting = (
         f"Welcome to your interview for the {job_title} role at {company_name}. "
