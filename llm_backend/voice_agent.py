@@ -27,56 +27,34 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
 
-
 # async def print_context_after_question():
-#     last_seen = None
+#     last_printed_question = None
 
 #     while True:
 #         try:
-#             current = context_store.last_context
+#             question = context_store.last_question
+#             context = context_store.last_context
 
-#             # print only when new question generated
-#             if current and current != last_seen:
-#                 last_seen = current
-#                 logger.info(f"\n🧠 QUESTION CONTEXT USED BY LLM:\n{current}\n")
-
-#         except Exception as e:
-#             logger.error(f"Context print error: {e}")
-
-#         await asyncio.sleep(0.5)  # check frequently
-
-
-# async def print_context_after_question():
-#     last_seen_context = None
-#     last_seen_question = None
-
-#     while True:
-#         try:
-#             current_context = context_store.last_context
-#             current_question = context_store.last_question
-
-#             # print only when NEW question generated
-#             if current_question and current_question != last_seen_question:
-#                 last_seen_question = current_question
-#                 last_seen_context = current_context
+#             # Only print when:
+#             # 1. question exists
+#             # 2. context exists
+#             # 3. new question (not already printed)
+#             if question and context and question != last_printed_question:
+#                 last_printed_question = question
 
 #                 logger.info("\n" + "="*60)
 #                 logger.info("🟢 NEW INTERVIEW QUESTION GENERATED")
 #                 logger.info("="*60)
 
-#                 logger.info(f"\n❓ QUESTION ASKED BY LLM:\n{current_question}\n")
-
-#                 if current_context:
-#                     logger.info(f"🧠 CONTEXT USED BY LLM:\n{current_context}\n")
-#                 else:
-#                     logger.info("🧠 CONTEXT USED BY LLM: None\n")
+#                 logger.info(f"\n❓ QUESTION:\n{question}\n")
+#                 logger.info(f"🧠 CONTEXT USED:\n{context}\n")
 
 #                 logger.info("="*60 + "\n")
 
 #         except Exception as e:
-#             logger.error(f"Context/Question print error: {e}")
+#             logger.error(f"Print pair error: {e}")
 
-#         await asyncio.sleep(0.5)
+#         await asyncio.sleep(0.3)
 
 
 async def print_context_after_question():
@@ -87,28 +65,42 @@ async def print_context_after_question():
             question = context_store.last_question
             context = context_store.last_context
 
-            # Only print when:
-            # 1. question exists
-            # 2. context exists
-            # 3. new question (not already printed)
-            if question and context and question != last_printed_question:
-                last_printed_question = question
+            # only proceed if both exist
+            if not question or not context:
+                await asyncio.sleep(0.25)
+                continue
 
-                logger.info("\n" + "="*60)
+            # normalize question (avoid whitespace dupes)
+            normalized_q = question.strip()
+
+            # if already printed → skip
+            if normalized_q == last_printed_question:
+                await asyncio.sleep(0.25)
+                continue
+
+            # wait small time to ensure stable (prevents multi-fire)
+            await asyncio.sleep(0.4)
+
+            # re-check stable
+            if (
+                context_store.last_question
+                and context_store.last_question.strip() == normalized_q
+            ):
+                last_printed_question = normalized_q
+
+                logger.info("\n" + "=" * 60)
                 logger.info("🟢 NEW INTERVIEW QUESTION GENERATED")
-                logger.info("="*60)
+                logger.info("=" * 60)
 
-                logger.info(f"\n❓ QUESTION:\n{question}\n")
+                logger.info(f"\n❓ QUESTION:\n{normalized_q}\n")
                 logger.info(f"🧠 CONTEXT USED:\n{context}\n")
 
-                logger.info("="*60 + "\n")
+                logger.info("=" * 60 + "\n")
 
         except Exception as e:
             logger.error(f"Print pair error: {e}")
 
-        await asyncio.sleep(0.3)
-
-
+        await asyncio.sleep(0.25)
 
 
 async def entrypoint(ctx: JobContext):
