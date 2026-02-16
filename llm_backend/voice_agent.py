@@ -207,7 +207,6 @@ async def entrypoint(ctx: JobContext):
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
     logger.info(f"   Audio output: {not enable_avatar or avatar_session is None}")
-    logger.info(f" context:{context_store.last_context} ")
     # Initial greeting
     greeting = (
         f"Welcome to your interview for the {job_title} role at {company_name}. "
@@ -217,6 +216,8 @@ async def entrypoint(ctx: JobContext):
 
     await session.say(greeting, allow_interruptions=True)
     logger.info("✅ Initial greeting sent")
+    await asyncio.sleep(1)
+    logger.info(f"🧠 Last Context: {context_store.last_context}")
 
 
 if __name__ == "__main__":
