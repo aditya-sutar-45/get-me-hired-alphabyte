@@ -337,7 +337,7 @@ async def entrypoint(ctx: JobContext):
     # 🔥 HOOK INTO SESSION EVENTS TO CAPTURE USER SPEECH
     # This captures the user's complete utterances
     @session.on("user_speech_committed")
-    async def on_user_speech(message):
+    def on_user_speech(message):
         """Called when user finishes speaking and transcript is finalized"""
         try:
             # Extract text from the message
@@ -353,7 +353,8 @@ async def entrypoint(ctx: JobContext):
                 
             if text:
                 logger.info(f"🎤 User speech: {text}")
-                await handle_user_transcript(text, ctx.room)
+                # Use asyncio.create_task to run the async function
+                asyncio.create_task(handle_user_transcript(text, ctx.room))
                 
         except Exception as e:
             logger.error(f"Error in user_speech_committed handler: {e}")
