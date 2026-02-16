@@ -53,11 +53,17 @@ func (h Handler) HandlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("json found getting user from database")
+
 	user, err := h.DB.GetUserByUsername(r.Context(), params.Username)
 	if err != nil {
+		log.Println(err)
+		log.Println("whyyyyy")
 		RespondWithErr(w, http.StatusNotFound, "user not found")
 		return
 	}
+
+	log.Println("got user from database")
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(params.Password))
 	if err != nil {
