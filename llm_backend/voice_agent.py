@@ -17,9 +17,6 @@ from livekit.plugins import (
     bey,
 )
 from llm.livekit_llm import create_workflow
-
-# context_store.last_context will have the context of the last generated question
-# context_store.last_question will have the last question for which the context was used for
 from llm.context_store import context_store
 import asyncio
 import aiohttp
@@ -27,32 +24,6 @@ import aiohttp
 load_dotenv()
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("voice-agent")
-
-
-# async def send_to_hint_api(question: str, context: str):
-#     """Send question and context to the hint generation API"""
-#     url = "http://localhost:6969/generate_hint"
-#     payload = {
-#         "question": question,
-#         "context": context
-#     }
-
-#     try:
-#         async with aiohttp.ClientSession() as session:
-#             async with session.post(url, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as response:
-#                 if response.status == 200:
-#                     result = await response.json()
-#                     logger.info(f"✅ Hint API response: {result}")
-#                     return result
-#                 else:
-#                     logger.error(f"❌ Hint API error: {response.status}")
-#                     return None
-#     except asyncio.TimeoutError:
-#         logger.error("❌ Hint API request timeout")
-#         return None
-#     except Exception as e:
-#         logger.error(f"❌ Hint API request failed: {e}")
-#         return None
 
 
 async def send_to_hint_api(question: str, context: str, room):
@@ -69,16 +40,13 @@ async def send_to_hint_api(question: str, context: str, room):
                     result = await response.json()
                     logger.info(f"✅ Hint API response: {result}")
 
-                    # 🔥 SEND TO FRONTEND VIA LIVEKIT DATA CHANNEL
                     message = {"type": "hint_response", "data": result}
-
                     await room.local_participant.publish_data(
                         json.dumps(message).encode("utf-8"), reliable=True
                     )
 
                     logger.info("📡 Hints sent to frontend via data channel")
                     return result
-
                 else:
                     logger.error(f"❌ Hint API error: {response.status}")
                     return None
@@ -91,86 +59,93 @@ async def send_to_hint_api(question: str, context: str, room):
         return None
 
 
-async def send_user_qa_to_api(question: str, answer: str, room):
-    """Send user's question and answer to the API and forward response to frontend"""
-    url = "http://localhost:6969/process_user_qa"  # Change this to your desired endpoint
-    payload = {"question": question, "answer": answer}
+async def send_user_feedback_to_api(question: str, user_answer: str, room):
+    """Send question and user answer to the feedback API and forward response to frontend"""
+    url = "http://localhost:6969/user_feedback"
+    payload = {"question": question, "user_answer": user_answer}
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                url, json=payload, timeout=aiohttp.ClientTimeout(total=10)
+                url, json=payload, timeout=aiohttp.ClientTimeout(total=15)
             ) as response:
                 if response.status == 200:
                     result = await response.json()
-                    logger.info(f"✅ User Q&A API response: {result}")
+                    logger.info(f"✅ User Feedback API response: {result}")
+                    
+                    # Log the detailed feedback
+                    logger.info(f"   📊 Logical Score: {result.get('logical_score')}")
+                    logger.info(f"   🎯 Confidence: {result.get('confidence')}")
+                    logger.info(f"   ✓ Logical Correctness: {result.get('logical_correctness')}")
 
-                    # 🔥 SEND TO FRONTEND VIA LIVEKIT DATA CHANNEL
-                    message = {"type": "user_qa_response", "data": result}
-
+                    message = {"type": "user_feedback_response", "data": result}
                     await room.local_participant.publish_data(
                         json.dumps(message).encode("utf-8"), reliable=True
                     )
 
-                    logger.info("📡 User Q&A response sent to frontend via data channel")
+                    logger.info("📡 User feedback sent to frontend via data channel")
                     return result
-
                 else:
-                    logger.error(f"❌ User Q&A API error: {response.status}")
+                    logger.error(f"❌ User Feedback API error: {response.status}")
                     return None
 
     except asyncio.TimeoutError:
-        logger.error("❌ User Q&A API request timeout")
+        logger.error("❌ User Feedback API request timeout")
         return None
     except Exception as e:
-        logger.error(f"❌ User Q&A API request failed: {e}")
+        logger.error(f"❌ User Feedback API request failed: {e}")
         return None
-    
+
+
+# Store for tracking questions and answers
+class AnswerStore:
+    def __init__(self):
+        self.current_question = None
+        self.pending_answer = None
+        self.last_processed_pair = None
+
+answer_store = AnswerStore()
+
 
 async def print_context_after_question(room):
+    """Monitor for new questions and send them to hint API"""
     last_printed_question = None
-    last_sent_pair = None  # Track sent question-context pairs
+    last_sent_pair = None
 
     while True:
         try:
             question = context_store.last_question
             context = context_store.last_context
 
-            # only proceed if both exist
             if not question or not context:
                 await asyncio.sleep(0.25)
                 continue
 
-            # normalize question (avoid whitespace dupes)
             normalized_q = question.strip()
             normalized_c = context.strip()
-
-            # Create unique identifier for this pair
             current_pair = (normalized_q, normalized_c)
 
-            # if already printed → skip
             if normalized_q == last_printed_question:
                 await asyncio.sleep(0.25)
                 continue
 
-            # wait small time to ensure stable (prevents multi-fire)
             await asyncio.sleep(0.4)
 
-            # re-check stable
             if (
                 context_store.last_question
                 and context_store.last_question.strip() == normalized_q
             ):
                 last_printed_question = normalized_q
+                
+                # Update answer store with current question
+                answer_store.current_question = normalized_q
 
                 logger.info("\n" + "=" * 60)
                 logger.info("🟢 NEW INTERVIEW QUESTION GENERATED")
                 logger.info("=" * 60)
-
                 logger.info(f"\n❓ QUESTION:\n{normalized_q}\n")
                 logger.info(f"🧠 CONTEXT USED:\n{normalized_c}\n")
 
-                # Send to API only if this exact pair hasn't been sent before
                 if current_pair != last_sent_pair:
                     logger.info("📤 Sending to hint generation API...")
                     await send_to_hint_api(normalized_q, normalized_c, room)
@@ -186,6 +161,69 @@ async def print_context_after_question(room):
         await asyncio.sleep(0.25)
 
 
+async def handle_user_transcript(text: str, room):
+    """
+    Process user transcript and send to feedback API
+    This should be called whenever we receive a complete user utterance
+    """
+    if not text or not text.strip():
+        return
+        
+    text = text.strip()
+    
+    # Only process if we have a current question
+    if not answer_store.current_question:
+        logger.warning("⚠️  Received user answer but no current question set")
+        return
+    
+    question = answer_store.current_question
+    current_pair = (question, text)
+    
+    # Avoid processing the same answer twice
+    if current_pair == answer_store.last_processed_pair:
+        logger.info("⏭️  Skipping duplicate answer")
+        return
+    
+    logger.info("\n" + "=" * 60)
+    logger.info("💬 USER ANSWER RECEIVED")
+    logger.info("=" * 60)
+    logger.info(f"\n❓ Question: {question}")
+    logger.info(f"💭 User Answer: {text}\n")
+    
+    # Send to feedback API
+    logger.info("📤 Sending to user feedback API...")
+    result = await send_user_feedback_to_api(question, text, room)
+    
+    if result:
+        answer_store.last_processed_pair = current_pair
+        logger.info("✅ Feedback processed successfully")
+    
+    logger.info("=" * 60 + "\n")
+
+
+async def setup_transcript_listener(room):
+    """
+    Listen for user transcripts from the room's data channel or events.
+    This is a placeholder - you'll need to integrate with your actual LiveKit session events.
+    """
+    
+    # Option 1: Listen to room events for user speech
+    @room.on("data_received")
+    def on_data_received(data_packet):
+        try:
+            message = json.loads(data_packet.data.decode('utf-8'))
+            
+            # Check if this is a user transcript message
+            if message.get("type") == "user_transcript":
+                transcript = message.get("text", "")
+                asyncio.create_task(handle_user_transcript(transcript, room))
+                
+        except Exception as e:
+            logger.error(f"Error processing data packet: {e}")
+    
+    logger.info("✅ Transcript listener set up")
+
+
 async def entrypoint(ctx: JobContext):
     logger.info(f"Starting AI Interview Agent in room: {ctx.room.name}")
 
@@ -197,21 +235,21 @@ async def entrypoint(ctx: JobContext):
     # Parse metadata
     job_metadata = {}
     resume = ""
-    enable_avatar = True  # Default to True
+    enable_avatar = True
 
     if participant.metadata:
         try:
             metadata = json.loads(participant.metadata)
             job_metadata = metadata.get("jobData", {})
             resume = metadata.get("resumeData", "")
-            enable_avatar = metadata.get("enableAvatar", True)  # Get from metadata
+            enable_avatar = metadata.get("enableAvatar", True)
 
             logger.info(f"✅ Loaded metadata successfully")
             logger.info(f"   Enable Avatar: {enable_avatar}")
             logger.info(f"   Job: {job_metadata.get('title', 'Unknown')}")
         except json.JSONDecodeError as e:
             logger.warning(f"Failed to parse participant metadata: {e}")
-            enable_avatar = True  # Default if parsing fails
+            enable_avatar = True
 
     company_name = job_metadata.get("companyName", "Unknown Company")
     job_title = job_metadata.get("title", "Software Developer")
@@ -295,6 +333,30 @@ async def entrypoint(ctx: JobContext):
         user_away_timeout=15.0,
         max_tool_steps=3,
     )
+    
+    # 🔥 HOOK INTO SESSION EVENTS TO CAPTURE USER SPEECH
+    # This captures the user's complete utterances
+    @session.on("user_speech_committed")
+    async def on_user_speech(message):
+        """Called when user finishes speaking and transcript is finalized"""
+        try:
+            # Extract text from the message
+            # The exact structure depends on your LiveKit/Deepgram setup
+            text = None
+            
+            if hasattr(message, 'alternatives') and message.alternatives:
+                text = message.alternatives[0].text
+            elif hasattr(message, 'text'):
+                text = message.text
+            elif isinstance(message, str):
+                text = message
+                
+            if text:
+                logger.info(f"🎤 User speech: {text}")
+                await handle_user_transcript(text, ctx.room)
+                
+        except Exception as e:
+            logger.error(f"Error in user_speech_committed handler: {e}")
 
     # CONDITIONALLY start avatar based on metadata
     avatar_session = None
@@ -307,14 +369,12 @@ async def entrypoint(ctx: JobContext):
             logger.info(f"🎬 Initializing Beyond Presence avatar")
             logger.info(f"   Avatar ID: {bey_avatar_id}")
 
-            # Create Beyond Presence Avatar Session
             avatar_session = bey.AvatarSession(
                 api_key=bey_api_key,
                 avatar_id=bey_avatar_id,
                 avatar_participant_name="AI-Interviewer-Avatar",
             )
 
-            # Start the avatar first
             await avatar_session.start(session, room=ctx.room)
             logger.info("✅ Beyond Presence avatar started and joined the room")
 
@@ -327,22 +387,21 @@ async def entrypoint(ctx: JobContext):
         logger.info("⏭️  Skipping avatar initialization (disabled by user)")
 
     # Start agent session
-    # Disable audio OUTPUT if avatar is handling it
     await session.start(
         room=ctx.room,
         agent=agent,
         room_input_options=RoomInputOptions(
             text_enabled=True,
-            audio_enabled=True,  # Always listen to user
+            audio_enabled=True,
         ),
         room_output_options=RoomOutputOptions(
-            # Only disable audio if avatar is successfully running
             audio_enabled=(not enable_avatar or avatar_session is None),
         ),
     )
 
-    # Start the context monitoring task
+    # Start monitoring tasks
     asyncio.create_task(print_context_after_question(ctx.room))
+    asyncio.create_task(setup_transcript_listener(ctx.room))
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
