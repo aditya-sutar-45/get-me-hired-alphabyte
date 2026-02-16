@@ -81,6 +81,9 @@ def generate(state: State, system_message: SystemMessage):
     messages_for_llm: List[BaseMessage] = [system_message, *messages[-MAX_HISTORY:]]
     response = llm.invoke(messages_for_llm)
 
+    question = cast(str, response.content)
+    context_store.last_question = question
+
     if len(state["messages"]) > MAX_STATE_MESSAGES:
         state["messages"] = state["messages"][-MAX_STATE_MESSAGES:]
 
@@ -157,6 +160,7 @@ Never prefix responses with your name.
         )
 
         context_store.last_context = docs_content
+        # print("LAST CONTEXT FROM LLM: ", context_store.last_context)
 
         return generate(state=state, system_message=system_message)
 

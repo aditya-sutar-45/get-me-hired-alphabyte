@@ -19,6 +19,7 @@ from livekit.plugins import (
 from llm.livekit_llm import create_workflow
 
 # context_store.last_context will have the context of the last generated question
+# context_store.last_question will have the last question for which the context was used for
 from llm.context_store import context_store
 import asyncio
 
@@ -203,7 +204,7 @@ async def entrypoint(ctx: JobContext):
             audio_enabled=(not enable_avatar or avatar_session is None),
         ),
     )
-    
+
     # 🧠 Capture every AI question + print context
     @session.on("response")
     def on_ai_response(res):
@@ -214,15 +215,13 @@ async def entrypoint(ctx: JobContext):
             question = res.text.strip()
             ctx_used = context_store.last_context
 
-            logger.info("\n" + "="*60)
+            logger.info("\n" + "=" * 60)
             logger.info(f"🧠 CONTEXT USED:\n{ctx_used}\n")
             logger.info(f"🤖 QUESTION ASKED:\n{question}")
-            logger.info("="*60 + "\n")
+            logger.info("=" * 60 + "\n")
 
         except Exception as e:
             logger.error(f"Print error: {e}")
-
-
 
     logger.info(f"✅ AI Interview Agent started successfully")
     logger.info(f"   Avatar active: {avatar_session is not None}")
@@ -238,7 +237,6 @@ async def entrypoint(ctx: JobContext):
     logger.info("✅ Initial greeting sent")
 
 
-
 if __name__ == "__main__":
     cli.run_app(
         WorkerOptions(
@@ -246,4 +244,3 @@ if __name__ == "__main__":
             num_idle_processes=1,
         )
     )
-
