@@ -72,3 +72,11 @@ func DatabaseInterviewSessionToInterviewSession(s database.InterviewSession) Int
 		SubmittedCode: nil,
 	}
 }
+
+func DatabaseSessionsToSessions(sessions []database.InterviewSession) []InterviewSession {
+	result := []InterviewSession{}
+	for _, s := range sessions {
+		result = append(result, DatabaseInterviewSessionToInterviewSession(s))
+	}
+	return result
+}

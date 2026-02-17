@@ -96,3 +96,14 @@ func (h Handler) HandlerUpdateInterviewByID(w http.ResponseWriter, r *http.Reque
 
 	respondWithJSON(w, http.StatusOK, models.DatabaseInterviewSessionToInterviewSession(session))
 }
+
+func (h Handler) GetInterviewSessionsByUserID(w http.ResponseWriter, r *http.Request, user database.User) {
+	sessions, err := h.DB.GetCompleteSessionsByUserID(r.Context(), user.ID)
+	if err != nil {
+		log.Println(err)
+		RespondWithErr(w, http.StatusNotFound, "no records found")
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, models.DatabaseSessionsToSessions(sessions))
+}

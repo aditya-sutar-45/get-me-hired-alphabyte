@@ -57,6 +57,48 @@ func (q *Queries) CreateInterviewSession(ctx context.Context, arg CreateIntervie
 	return i, err
 }
 
+const getCompleteSessionsByUserID = `-- name: GetCompleteSessionsByUserID :many
+SELECT id, status, created_at, updated_at, user_id, job_id, transcript, user_feedbacks, hints_used, submitted_code
+FROM interview_session
+WHERE user_id = $1
+AND status = 'completed'
+ORDER BY updated_at DESC
+`
+
+func (q *Queries) GetCompleteSessionsByUserID(ctx context.Context, userID uuid.UUID) ([]InterviewSession, error) {
+	rows, err := q.db.QueryContext(ctx, getCompleteSessionsByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InterviewSession
+	for rows.Next() {
+		var i InterviewSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.UserID,
+			&i.JobID,
+			&i.Transcript,
+			&i.UserFeedbacks,
+			&i.HintsUsed,
+			&i.SubmittedCode,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateInterviewSession = `-- name: UpdateInterviewSession :one
 UPDATE interview_session
 SET

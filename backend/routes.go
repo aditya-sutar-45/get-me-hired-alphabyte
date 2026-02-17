@@ -27,4 +27,5 @@ func setupRoutes(r *chi.Mux, h *handlers.Handler, m *Middleware) {
 
 	r.Post("/interview", m.middlwareAuth(h.HandlerCreateInterviewSession))
 	r.Patch("/interview/{id}", m.middlwareAuth(h.HandlerUpdateInterviewByID))
+	r.Get("/interview", m.middlwareAuth(h.GetInterviewSessionsByUserID))
 }

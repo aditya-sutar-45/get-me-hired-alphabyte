@@ -20,3 +20,10 @@ SET
   updated_at = NOW()
 WHERE id = $1
 RETURNING *;
+
+-- name: GetCompleteSessionsByUserID :many
+SELECT *
+FROM interview_session
+WHERE user_id = $1
+AND status = 'completed'
+ORDER BY updated_at DESC;
