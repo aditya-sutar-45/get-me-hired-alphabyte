@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import ThemeController from "../General/ThemeController";
 import CodeEditor from "./CodeEditor";
-import { Light } from "react-syntax-highlighter";
 import { Lightbulb } from "lucide-react";
 
 const Header = ({
@@ -26,9 +25,28 @@ const Header = ({
   const [showHintsDropdown, setShowHintsDropdown] = useState(false);
   const [selectedHint, setSelectedHint] = useState(null);
 
+  // ⭐ NEW STATE → stores all hints used
+  const [hintsUsed, setHintsUsed] = useState([]);
+
+  // ⭐ when hint clicked
   const handleHintClick = (hint, index) => {
+    const hintData = {
+      hintId: index + 1,
+      hintText: hint,
+      question: interviewName || "Unknown Question",
+      topic: hintTopic || null,
+      timestamp: new Date().toISOString(),
+    };
+
+    // push into state
+    setHintsUsed((prev) => [...prev, hintData]);
+
+    // show modal
     setSelectedHint({ text: hint, index: index + 1 });
     setShowHintsDropdown(false);
+
+    // debug log
+    console.log("Hints Used So Far:", [...hintsUsed, hintData]);
   };
 
   const closeHintModal = () => {
@@ -61,13 +79,12 @@ const Header = ({
                 onClick={() => setShowHintsDropdown(!showHintsDropdown)}
                 className="btn btn-base-300 rounded-lg px-6 flex items-center gap-2"
               >
-                <Lightbulb/>
-
+                <Lightbulb />
               </button>
 
               {/* Dropdown */}
               {showHintsDropdown && (
-                <div className="absolute mt-2 w-5 bg-base-100 border border-base-300 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
+                <div className="absolute mt-2 w-50 bg-base-100 border border-base-300 rounded-xl shadow-2xl z-50 max-h-96 overflow-y-auto">
                   <div className="p-3 border-b border-base-300">
                     <div className="flex justify-between items-center">
                       <h3 className="font-semibold text-lg">Available Hints</h3>
@@ -96,7 +113,6 @@ const Header = ({
                         <span className="badge badge-primary mt-1">
                           hint {index + 1}
                         </span>
-                   
                       </button>
                     ))}
                   </div>
@@ -106,14 +122,7 @@ const Header = ({
           )}
         </div>
 
-        {/* <h1 className="text-xl font-medium text-grey-600 whitespace-nowrap mx-4">
-          {interviewName}
-        </h1> */}
-
         <div className="flex gap-3 items-center">
-          {/* Hints Dropdown Button */}
-
-          {/* <ThemeController /> */}
           <button
             onClick={isConnected ? onDisconnect : onConnect}
             className="btn btn-error rounded-lg px-8"
