@@ -131,7 +131,7 @@ const CodeBlock = ({ language, content }) => {
           )}
         </button>
       </div>
-      
+
       <div className="relative">
         <SyntaxHighlighter
           language={language || "javascript"}
@@ -174,21 +174,19 @@ const MessageBubble = ({ msg, isLatestStreaming = false, feedback = null }) => {
     >
       <div className="max-w-[85%] sm:max-w-[80%] lg:max-w-[75%]">
         <div
-          className={`${
-            msg.speaker === "You" ? "bg-base-100" : "bg-base-100"
-          } rounded-2xl px-4 py-3 relative break-words`}
+          className={`${msg.speaker === "You" ? "bg-base-100" : "bg-base-100"
+            } rounded-2xl px-4 py-3 relative break-words`}
         >
           <p
-            className={`font-medium text-xs mb-1 ${
-              msg.speaker === "You" ? "text-blue-200" : "text-green-200"
-            }`}
+            className={`font-medium text-xs mb-1 ${msg.speaker === "You" ? "text-blue-200" : "text-green-200"
+              }`}
           >
             {msg.speaker} • {msg.timestamp}
             {isActive && msg.speaker === "Agent" && (
               <span className="ml-2 text-xs text-green-300">● LIVE</span>
             )}
           </p>
-          
+
           <div className="text-white text-sm leading-relaxed break-words overflow-wrap-anywhere">
             {contentParts.map((part, idx) => {
               if (part.type === "code") {
@@ -230,23 +228,22 @@ const MessageBubble = ({ msg, isLatestStreaming = false, feedback = null }) => {
                 </span>
               </div>
             </div>
-            
+
             <div className="mb-2">
-              <span className={`text-xs font-medium ${
-                feedback.logical_correctness === "correct" 
-                  ? "text-green-400" 
-                  : feedback.logical_correctness === "partially_correct"
+              <span className={`text-xs font-medium ${feedback.logical_correctness === "correct"
+                ? "text-green-400"
+                : feedback.logical_correctness === "partially_correct"
                   ? "text-yellow-400"
                   : "text-red-400"
-              }`}>
-                {feedback.logical_correctness === "correct" 
-                  ? "✓ Correct" 
+                }`}>
+                {feedback.logical_correctness === "correct"
+                  ? "✓ Correct"
                   : feedback.logical_correctness === "partially_correct"
-                  ? "⚠ Partially Correct"
-                  : "✗ Incorrect"}
+                    ? "⚠ Partially Correct"
+                    : "✗ Incorrect"}
               </span>
             </div>
-            
+
             <p className="text-xs text-gray-300 leading-relaxed">
               {feedback.feedback}
             </p>
@@ -260,10 +257,10 @@ const MessageBubble = ({ msg, isLatestStreaming = false, feedback = null }) => {
 // NEW: Function to group consecutive messages from the same speaker
 const groupConsecutiveMessages = (transcript) => {
   const grouped = [];
-  
+
   for (let i = 0; i < transcript.length; i++) {
     const currentMsg = transcript[i];
-    
+
     // If this is the first message or speaker changed, start a new group
     if (grouped.length === 0 || grouped[grouped.length - 1].speaker !== currentMsg.speaker) {
       grouped.push({
@@ -279,7 +276,7 @@ const groupConsecutiveMessages = (transcript) => {
       lastGroup.originalIndices.push(i);
     }
   }
-  
+
   return grouped;
 };
 
@@ -289,6 +286,8 @@ const TranscriptPanel = ({
   onSendMessage,
   messageInputDisabled = false,
   apiBaseUrl = "", // Add this prop for API endpoint configuration
+  allFeedback,
+  setAllFeedback,
 }) => {
   const transcriptEndRef = useRef(null);
   const textareaRef = useRef(null);
@@ -315,7 +314,7 @@ const TranscriptPanel = ({
     const filteredTranscript = transcript.filter(
       (msg) => msg.speaker === "You" || msg.speaker === "Agent"
     );
-    
+
     // Find the last agent message
     for (let i = filteredTranscript.length - 1; i >= 0; i--) {
       if (filteredTranscript[i].speaker === "Agent") {
@@ -336,12 +335,12 @@ const TranscriptPanel = ({
       if (msg.speaker === "You" && msg.isFinal) {
         // Create a unique identifier for this message
         const messageId = `${idx}-${msg.timestamp}-${msg.text.substring(0, 20)}`;
-        
+
         // Check if we've already processed this message
         if (!processedUserMessages.has(messageId)) {
           // Mark as processed
           setProcessedUserMessages(prev => new Set([...prev, messageId]));
-          
+
           // Find the most recent Agent question before this user message
           let questionForThisAnswer = null;
           for (let i = idx - 1; i >= 0; i--) {
@@ -350,7 +349,7 @@ const TranscriptPanel = ({
               break;
             }
           }
-          
+
           // If there's a question and API URL, get feedback
           if (questionForThisAnswer && apiBaseUrl && !feedbackMap[idx]) {
             console.log("Processing voice/text message:", msg.text);
@@ -376,7 +375,7 @@ const TranscriptPanel = ({
 
     try {
       setProcessingFeedback(true);
-      
+
       console.log("Sending feedback request:", {
         question,
         userAnswer,
@@ -399,17 +398,25 @@ const TranscriptPanel = ({
       }
 
       const data = await response.json();
-      
+
       // Store feedback with the message index
+
+      const feedbackObject = {
+        messageIndex,
+        question,
+        userAnswer,
+        logical_correctness: data.logical_correctness,
+        feedback: data.feedback,
+        logical_score: data.logical_score,
+        confidence: data.confidence,
+      };
+
       setFeedbackMap(prev => ({
         ...prev,
-        [messageIndex]: {
-          logical_correctness: data.logical_correctness,
-          feedback: data.feedback,
-          logical_score: data.logical_score,
-          confidence: data.confidence,
-        }
+        [messageIndex]: feedbackObject,
       }));
+
+      setAllFeedback(prev => [...prev, feedbackObject]);
 
       console.log("Feedback received and stored for index", messageIndex, ":", data);
     } catch (error) {
@@ -430,10 +437,10 @@ const TranscriptPanel = ({
     if (message.trim() && !messageInputDisabled && onSendMessage) {
       const userMessage = message;
       onSendMessage(userMessage);
-      
+
       // The useEffect will handle the API call for this message
       // No need to manually call it here anymore
-      
+
       setMessage("");
       if (textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -467,8 +474,8 @@ const TranscriptPanel = ({
               const isLatestAgent = isLatest && msg.speaker === "Agent";
 
               // For grouped user messages, get feedback for the last original index
-              const feedbackIndex = msg.originalIndices 
-                ? msg.originalIndices[msg.originalIndices.length - 1] 
+              const feedbackIndex = msg.originalIndices
+                ? msg.originalIndices[msg.originalIndices.length - 1]
                 : idx;
 
               return (
@@ -501,11 +508,10 @@ const TranscriptPanel = ({
           <button
             onClick={handleSend}
             disabled={messageInputDisabled || !message.trim() || processingFeedback}
-            className={`absolute right-2 bottom-2 p-2 rounded-lg transition-all ${
-              message.trim() && !messageInputDisabled && !processingFeedback
-                ? "bg-white text-black hover:bg-gray-200"
-                : "bg-gray-700 text-gray-500 cursor-not-allowed"
-            }`}
+            className={`absolute right-2 bottom-2 p-2 rounded-lg transition-all ${message.trim() && !messageInputDisabled && !processingFeedback
+              ? "bg-white text-black hover:bg-gray-200"
+              : "bg-gray-700 text-gray-500 cursor-not-allowed"
+              }`}
             aria-label="Send message"
           >
             {processingFeedback ? (

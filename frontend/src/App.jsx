@@ -21,7 +21,7 @@ const router = createBrowserRouter([
       { path: "/", element: <LandingPage /> },
       { path: "/register", element: <Register /> },
       { path: "/job", element: <Jobs /> },
-      { path: "/feedback", element: <FeedbackPage /> },
+      { path: "/feedback/:id", element: <FeedbackPage /> },
       { path: "/profile/:username", element: <ProfilePage /> },
       {
         path: "/company",

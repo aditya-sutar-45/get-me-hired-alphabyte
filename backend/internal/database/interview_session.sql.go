@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/sqlc-dev/pqtype"
 )
 
 const createInterviewSession = `-- name: CreateInterviewSession :one
@@ -39,6 +40,53 @@ func (q *Queries) CreateInterviewSession(ctx context.Context, arg CreateIntervie
 		arg.UpdatedAt,
 		arg.UserID,
 		arg.JobID,
+	)
+	var i InterviewSession
+	err := row.Scan(
+		&i.ID,
+		&i.Status,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.UserID,
+		&i.JobID,
+		&i.Transcript,
+		&i.UserFeedbacks,
+		&i.HintsUsed,
+		&i.SubmittedCode,
+	)
+	return i, err
+}
+
+const updateInterviewSession = `-- name: UpdateInterviewSession :one
+UPDATE interview_session
+SET
+  status = $2,
+  transcript = $3,
+  user_feedbacks = $4,
+  hints_used = $5,
+  submitted_code = $6,
+  updated_at = NOW()
+WHERE id = $1
+RETURNING id, status, created_at, updated_at, user_id, job_id, transcript, user_feedbacks, hints_used, submitted_code
+`
+
+type UpdateInterviewSessionParams struct {
+	ID            uuid.UUID
+	Status        InterviewStatus
+	Transcript    pqtype.NullRawMessage
+	UserFeedbacks pqtype.NullRawMessage
+	HintsUsed     pqtype.NullRawMessage
+	SubmittedCode pqtype.NullRawMessage
+}
+
+func (q *Queries) UpdateInterviewSession(ctx context.Context, arg UpdateInterviewSessionParams) (InterviewSession, error) {
+	row := q.db.QueryRowContext(ctx, updateInterviewSession,
+		arg.ID,
+		arg.Status,
+		arg.Transcript,
+		arg.UserFeedbacks,
+		arg.HintsUsed,
+		arg.SubmittedCode,
 	)
 	var i InterviewSession
 	err := row.Scan(

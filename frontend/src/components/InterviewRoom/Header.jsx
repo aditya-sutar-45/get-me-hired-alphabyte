@@ -21,14 +21,13 @@ const Header = ({
   loadingAnalysis,
   hints,
   hintTopic,
+  hintsUsed,
+  setHintsUsed
 }) => {
   const [showHintsDropdown, setShowHintsDropdown] = useState(false);
   const [selectedHint, setSelectedHint] = useState(null);
 
-  // ⭐ NEW STATE → stores all hints used
-  const [hintsUsed, setHintsUsed] = useState([]);
 
-  // ⭐ when hint clicked
   const handleHintClick = (hint, index) => {
     const hintData = {
       hintId: index + 1,

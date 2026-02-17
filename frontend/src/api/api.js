@@ -77,4 +77,23 @@ export const createInterviewSession = async (jobID) => {
   }
 
   return res
-} 
+}
+
+export const updateInterviewSession = async (sessionID, payload) => {
+  const res = await fetch(`${BACKEND_BASE_URL}/interview/${sessionID}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text(); // important for debugging
+    console.error("Update failed:", errorText);
+    throw new Error("Interview session not updated");
+  }
+
+  return await res.json();
+};

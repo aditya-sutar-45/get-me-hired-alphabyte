@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { 
-  Download, 
-  Mic, 
-  BarChart3, 
-  TrendingUp, 
-  Award,
-  MessageSquare,
-  ArrowLeft 
+import {
+  Download,
+  Mic,
+  TrendingUp,
+  ArrowLeft
 } from "lucide-react";
 
 const FeedbackPage = () => {
@@ -20,13 +17,13 @@ const FeedbackPage = () => {
 
   useEffect(() => {
     const data = location.state;
+    console.log(data)
 
-    if (!data || !data.transcript) {
-      navigate("/");
+    if (!data || !data.sessionDetails.transcript) {
       return;
     }
 
-    setTranscript(data.transcript);
+    setTranscript(data.sessionDetails.transcript);
     setInterviewData({
       roomId: data.roomId || "",
       interviewName: data.interviewName || "Interview Session",
@@ -73,7 +70,7 @@ const FeedbackPage = () => {
     <div className="min-h-screen relative font-work-sans">
       {/* Global Animated Grid Background */}
       <div className="fixed inset-0 h-full w-full -z-10 bg-base-200">
-        <div 
+        <div
           className="absolute inset-0 h-full w-full bg-[linear-gradient(to_right,#4f4f4f18_1px,transparent_1px),linear-gradient(to_bottom,#4f4f4f18_1px,transparent_1px)] bg-[size:40px_40px]"
           style={{
             animation: 'gridFlow 30s linear infinite',
@@ -90,15 +87,15 @@ const FeedbackPage = () => {
                 Interview Analysis
               </span>
             </div>
-            
+
             <h1 className="text-5xl md:text-6xl font-bold font-space-mono mb-6 leading-tight">
               Your Feedback Report
             </h1>
-            
+
             <p className="text-xl text-base-content/70 mb-8 max-w-2xl mx-auto leading-relaxed">
               Comprehensive analysis of your interview performance with actionable insights
             </p>
-            
+
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto">
               <button
                 onClick={handleDownloadTranscript}
@@ -107,8 +104,8 @@ const FeedbackPage = () => {
                 <Download className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                 Download Report
               </button>
-              <button 
-                onClick={handleBackToHome} 
+              <button
+                onClick={handleBackToHome}
                 className="btn btn-ghost gap-2 font-work-sans"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -187,7 +184,7 @@ const FeedbackPage = () => {
                 {transcript.length} messages
               </span>
             </div>
-            
+
             <div className="divider"></div>
 
             <div className="overflow-y-auto max-h-[70vh] space-y-4 pr-2">
@@ -200,19 +197,17 @@ const FeedbackPage = () => {
                 transcript.map((msg, idx) => (
                   <div
                     key={`${msg.speaker}-${idx}-${msg.timestamp}`}
-                    className={`p-4 lg:p-6 rounded-2xl shadow-sm transition-all duration-300 hover:shadow-md ${
-                      msg.speaker === "You"
-                        ? "bg-gradient-to-r from-primary/10 to-primary/5 ml-6 border-l-4 border-primary"
-                        : "bg-gradient-to-r from-secondary/10 to-secondary/5 mr-6 border-l-4 border-secondary"
-                    }`}
+                    className={`p-4 lg:p-6 rounded-2xl shadow-sm transition-all duration-300 hover:shadow-md ${msg.speaker === "You"
+                      ? "bg-gradient-to-r from-primary/10 to-primary/5 ml-6 border-l-4 border-primary"
+                      : "bg-gradient-to-r from-secondary/10 to-secondary/5 mr-6 border-l-4 border-secondary"
+                      }`}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <span
-                        className={`font-bold text-lg px-3 py-1 rounded-full text-sm ${
-                          msg.speaker === "You"
-                            ? "bg-primary text-white"
-                            : "bg-secondary text-white shadow-md"
-                        }`}
+                        className={`font-bold text-lg px-3 py-1 rounded-full text-sm ${msg.speaker === "You"
+                          ? "bg-primary text-white"
+                          : "bg-secondary text-white shadow-md"
+                          }`}
                       >
                         {msg.speaker}
                       </span>
@@ -240,7 +235,7 @@ const FeedbackPage = () => {
                 <p className="text-sm text-base-content/60">Actionable insights for improvement</p>
               </div>
             </div>
-            
+
             <div className="divider"></div>
 
             <div className="overflow-y-auto max-h-[70vh] space-y-4 pr-2">

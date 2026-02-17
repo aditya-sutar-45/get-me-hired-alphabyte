@@ -10,7 +10,7 @@ import ConnectionLoadingModal from "../components/InterviewRoom/ConnectionLoadin
 import toast, { Toaster } from "react-hot-toast";
 import { io } from "socket.io-client";
 import { useAuth } from "../contexts/AuthContext";
-import { createInterviewSession } from "../api/api";
+import { createInterviewSession, updateInterviewSession } from "../api/api";
 
 const InterviewRoom = () => {
   const location = useLocation();
@@ -30,10 +30,12 @@ const InterviewRoom = () => {
   const [currentMicId, setCurrentMicId] = useState("");
   const [isAgentSpeaking, setIsAgentSpeaking] = useState(false);
   const [videoTrack, setVideoTrack] = useState(null);
+  const [dbSessionID, setDBSessionID] = useState("")
 
   const [codeValue, setCodeValue] = useState("");
   const [output, setOutput] = useState("");
 
+  const [hintsUsed, setHintsUsed] = useState([]);
   // Avatar control states - SIMPLIFIED (no toggle button)
   const [showAvatarConfirmation, setShowAvatarConfirmation] = useState(false);
   const [isAvatarEnabled, setIsAvatarEnabled] = useState(false);
@@ -49,6 +51,8 @@ const InterviewRoom = () => {
 
   const [hints, setHints] = useState([]);
   const [hintTopic, setHintTopic] = useState("");
+
+  const [allFeedback, setAllFeedback] = useState([]);
 
   const { user } = useAuth();
 
@@ -290,6 +294,7 @@ const InterviewRoom = () => {
       // send req to backend
       const dbRes = await createInterviewSession(jobData.job_id)
       const d = await dbRes.json()
+      setDBSessionID(d.id)
       console.log(d)
 
       const response = await fetch("http://localhost:5000/create-room", {
@@ -679,14 +684,27 @@ const InterviewRoom = () => {
       setIsConnecting(false);
       currentAgentSegmentRef.current = null;
 
-      navigate("/feedback", {
-        state: {
+      try {
+        const payload = {
+          status: "completed",
           transcript: transcript,
-          roomId: roomId,
-          interviewName: interviewName,
-          duration: "Session ended",
-        },
-      });
+          user_feedbacks: allFeedback,
+          hints_used: hintsUsed,
+        }
+
+        const sessionDetails = await updateInterviewSession(dbSessionID, payload)
+
+        navigate(`/feedback/${sessionDetails.id}`, {
+          state: {
+            roomId: roomId,
+            interviewName: interviewName,
+            duration: "Session ended",
+            sessionDetails: sessionDetails
+          },
+        });
+      } catch (err) {
+        console.error("ERROR WHILE DICONNECTING: ", err)
+      }
 
       setTranscript([]);
       isConnectingRef.current = false;
@@ -890,6 +908,8 @@ const InterviewRoom = () => {
           loadingAnalysis={loadingAnalysis}
           hints={hints}
           hintTopic={hintTopic}
+          hintsUsed={hintsUsed}
+          setHintsUsed={setHintsUsed}
         />
 
         <div className="flex-1 flex flex-col lg:flex-row gap-3 md:gap-4 lg:gap-5 xl:gap-6 p-3 md:p-4 lg:p-5 xl:p-6 overflow-hidden">
@@ -901,6 +921,8 @@ const InterviewRoom = () => {
               onSendMessage={handleSendMessage}
               messageInputDisabled={!isConnected}
               apiBaseUrl="http://localhost:6969"
+              allFeedback={allFeedback}
+              setAllFeedback={setAllFeedback}
             />
           </div>
 
