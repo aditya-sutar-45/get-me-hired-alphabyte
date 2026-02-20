@@ -21,3 +21,11 @@ Flask-Cors
 
 livekit-plugins-bey
 lizard
+
+
+opencv-python
+numpy
+ultralytics
+torch
+torchvision
+torchaudio
