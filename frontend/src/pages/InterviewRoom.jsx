@@ -144,6 +144,7 @@ const InterviewRoom = () => {
   const audioElementsRef = useRef([]);
   const animationFrameIdsRef = useRef([]);
   const isConnectingRef = useRef(false);
+   const localStreamRef = useRef(null);
 
   const currentAgentSegmentRef = useRef(null);
   const agentSpeechDetectionTimeoutRef = useRef(null);
@@ -752,31 +753,87 @@ const InterviewRoom = () => {
     }
   };
 
-  const handleVideoToggle = async () => {
-    if (!roomRef.current) {
-      return;
-    }
+  // const handleVideoToggle = async () => {
+  //   if (!roomRef.current) {
+  //     return;
+  //   }
 
+  //   const newState = !isVideoOn;
+
+  //   try {
+  //     if (newState) {
+  //       const publication =
+  //         await roomRef.current.localParticipant.setCameraEnabled(true);
+
+  //       if (publication && publication.track && videoRef.current) {
+  //         publication.track.attach(videoRef.current);
+  //         setHasVideo(true);
+  //         setIsVideoOn(true);
+  //       }
+  //     } else {
+  //       await roomRef.current.localParticipant.setCameraEnabled(false);
+  //       setHasVideo(false);
+  //       setIsVideoOn(false);
+
+  //       if (videoRef.current) {
+  //         videoRef.current.srcObject = null;
+  //       }
+  //     }
+  //   } catch (error) {
+  //     console.error("Error toggling video:", error);
+  //     setIsVideoOn(false);
+  //     setHasVideo(false);
+  //   }
+  // };
+
+  const handleVideoToggle = async () => {
     const newState = !isVideoOn;
 
     try {
       if (newState) {
-        const publication =
-          await roomRef.current.localParticipant.setCameraEnabled(true);
+        if (roomRef.current) {
+          // Connected to room: use LiveKit
+          const publication =
+            await roomRef.current.localParticipant.setCameraEnabled(true);
 
-        if (publication && publication.track && videoRef.current) {
-          publication.track.attach(videoRef.current);
-          setHasVideo(true);
-          setIsVideoOn(true);
+          if (publication && publication.track && videoRef.current) {
+            publication.track.attach(videoRef.current);
+            setHasVideo(true);
+            setIsVideoOn(true);
+          }
+        } else {
+          // Not connected: use browser camera directly
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: false,
+          });
+
+          localStreamRef.current = stream;
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            setHasVideo(true);
+            setIsVideoOn(true);
+          }
         }
       } else {
-        await roomRef.current.localParticipant.setCameraEnabled(false);
-        setHasVideo(false);
-        setIsVideoOn(false);
+        // Turning OFF
+        if (roomRef.current) {
+          await roomRef.current.localParticipant.setCameraEnabled(false);
+        }
+
+        // Stop raw getUserMedia stream if active
+        if (localStreamRef.current) {
+          localStreamRef.current.getTracks().forEach((t) => t.stop());
+          localStreamRef.current = null;
+        }
 
         if (videoRef.current) {
           videoRef.current.srcObject = null;
         }
+
+        setHasVideo(false);
+        setIsVideoOn(false);
       }
     } catch (error) {
       console.error("Error toggling video:", error);
