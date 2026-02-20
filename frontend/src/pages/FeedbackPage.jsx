@@ -35,7 +35,7 @@ const FeedbackPage = () => {
         const res = await fetch("http://localhost:5000/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transcript: data.transcript }),
+          body: JSON.stringify({ transcript: data.sessionDetails.transcript }),
         });
 
         const result = await res.json();
